@@ -1,0 +1,18 @@
+C:\Users\User\Desktop\לימודים\פרוייקט שנה ב\chargeProject\DAL\obj\Debug\net10.0\DAL.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\User\Desktop\לימודים\פרוייקט שנה ב\chargeProject\DAL\obj\Debug\net10.0\DAL.AssemblyInfoInputs.cache
+C:\Users\User\Desktop\לימודים\פרוייקט שנה ב\chargeProject\DAL\obj\Debug\net10.0\DAL.AssemblyInfo.cs
+C:\Users\User\Desktop\לימודים\פרוייקט שנה ב\chargeProject\DAL\obj\Debug\net10.0\DAL.csproj.CoreCompileInputs.cache
+C:\Users\USER\Desktop\פרוייקט\chargeProject\DAL\bin\Debug\net10.0\DAL.deps.json
+C:\Users\USER\Desktop\פרוייקט\chargeProject\DAL\bin\Debug\net10.0\DAL.runtimeconfig.json
+C:\Users\USER\Desktop\פרוייקט\chargeProject\DAL\bin\Debug\net10.0\DAL.dll
+C:\Users\USER\Desktop\פרוייקט\chargeProject\DAL\bin\Debug\net10.0\DAL.pdb
+C:\Users\USER\Desktop\פרוייקט\chargeProject\DAL\obj\Debug\net10.0\DAL.csproj.AssemblyReference.cache
+C:\Users\USER\Desktop\פרוייקט\chargeProject\DAL\obj\Debug\net10.0\DAL.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\USER\Desktop\פרוייקט\chargeProject\DAL\obj\Debug\net10.0\DAL.AssemblyInfoInputs.cache
+C:\Users\USER\Desktop\פרוייקט\chargeProject\DAL\obj\Debug\net10.0\DAL.AssemblyInfo.cs
+C:\Users\USER\Desktop\פרוייקט\chargeProject\DAL\obj\Debug\net10.0\DAL.csproj.CoreCompileInputs.cache
+C:\Users\USER\Desktop\פרוייקט\chargeProject\DAL\obj\Debug\net10.0\DAL.dll
+C:\Users\USER\Desktop\פרוייקט\chargeProject\DAL\obj\Debug\net10.0\refint\DAL.dll
+C:\Users\USER\Desktop\פרוייקט\chargeProject\DAL\obj\Debug\net10.0\DAL.pdb
+C:\Users\USER\Desktop\פרוייקט\chargeProject\DAL\obj\Debug\net10.0\DAL.genruntimeconfig.cache
+C:\Users\USER\Desktop\פרוייקט\chargeProject\DAL\obj\Debug\net10.0\ref\DAL.dll
