@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using DAL.Classes;
+using Microsoft.EntityFrameworkCore;
 
 namespace DAL.Data
 {
