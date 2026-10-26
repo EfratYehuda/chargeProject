@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using BLL.Repositories.IRepositories;
 using DTO.VEHICLESDTO;
+using BLL.Services;
 
 namespace chargeProject.Controllers
 {
@@ -8,11 +8,11 @@ namespace chargeProject.Controllers
     [ApiController]
     public class ChargeBookingController : ControllerBase
     {
-        private readonly InterfaceChargeBooking _bookingRepository;
+        private readonly IChargeBookingService _chargeBookingService;
 
-        public ChargeBookingController(InterfaceChargeBooking bookingRepository)
+        public ChargeBookingController(IChargeBookingService _chargeBookingService)
         {
-            _bookingRepository = bookingRepository;
+            _chargeBookingService = _chargeBookingService;
         }
 
         // 1. GET: api/ChargeBooking - שליפת כל ההזמנות
@@ -21,7 +21,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var bookings = await _bookingRepository.GetAllAsync();
+                var bookings = await _chargeBookingService.GetAllAsync();
                 return Ok(bookings);
             }
             catch (Exception ex)
@@ -36,7 +36,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var booking = await _bookingRepository.GetByIdAsync(id);
+                var booking = await _chargeBookingService.GetByIdAsync(id);
                 if (booking == null)
                 {
                     return NotFound($"Booking with ID {id} was not found.");
@@ -60,7 +60,7 @@ namespace chargeProject.Controllers
 
             try
             {
-                var createdBooking = await _bookingRepository.AddAsync(newBookingDto);
+                var createdBooking = await _chargeBookingService.AddAsync(newBookingDto);
                 return Ok(createdBooking);
             }
             catch (Exception ex)
@@ -80,7 +80,7 @@ namespace chargeProject.Controllers
 
             try
             {
-                var updatedBooking = await _bookingRepository.UpdateAsync(id, updatedBookingDto);
+                var updatedBooking = await _chargeBookingService.UpdateAsync(id, updatedBookingDto);
                 if (updatedBooking == null)
                 {
                     return NotFound($"Booking with ID {id} was not found for update.");
@@ -99,7 +99,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var updatedBooking = await _bookingRepository.UpdateStatusAsync(id, status);
+                var updatedBooking = await _chargeBookingService.UpdateStatusAsync(id, status);
                 if (updatedBooking == null)
                 {
                     return NotFound($"Booking with ID {id} was not found.");
@@ -118,7 +118,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var success = await _bookingRepository.DeleteAsync(id);
+                var success = await _chargeBookingService.DeleteAsync(id);
                 if (!success)
                 {
                     return NotFound($"Booking with ID {id} was not found.");

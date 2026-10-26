@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using BLL.Repositories.IRepositories;
+using BLL.Services;
 using DTO.USERDTO;
 
 namespace chargeProject.Controllers
@@ -8,17 +8,17 @@ namespace chargeProject.Controllers
     [ApiController]
     public class UsersController : ControllerBase
     {
-        private readonly InterfaceUser _userRepository;
+        private readonly IUserService _userService;
 
-        public UsersController(InterfaceUser userRepository)
+        public UsersController(IUserService _userService)
         {
-            _userRepository = userRepository;
+            _userService = _userService;
         }
 
         [HttpGet]
         public async Task<IActionResult> GetAllUsers()
         {
-            try { return Ok(await _userRepository.GetAllAsync()); }
+            try { return Ok(await _userService.GetAllAsync()); }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
@@ -27,7 +27,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var user = await _userRepository.GetByIdAsync(id);
+                var user = await _userService.GetByIdAsync(id);
                 if (user == null) return NotFound($"User with ID {id} not found.");
                 return Ok(user);
             }
@@ -37,7 +37,7 @@ namespace chargeProject.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequestDto dto, [FromQuery] string passwordHash)
         {
-            try { return Ok(await _userRepository.AddAsync(dto, passwordHash)); }
+            try { return Ok(await _userService.AddAsync(dto, passwordHash)); }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
@@ -46,7 +46,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var updated = await _userRepository.UpdateAsync(id, dto);
+                var updated = await _userService.UpdateAsync(id, dto);
                 if (updated == null) return NotFound($"User with ID {id} not found.");
                 return Ok(updated);
             }
@@ -58,7 +58,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var success = await _userRepository.DeleteAsync(id);
+                var success = await _userService.DeleteAsync(id);
                 if (!success) return NotFound($"User with ID {id} not found.");
                 return Ok($"User with ID {id} deleted successfully.");
             }

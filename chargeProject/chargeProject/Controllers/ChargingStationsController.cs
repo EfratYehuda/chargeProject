@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using BLL.Repositories.IRepositories;
+using BLL.Services;
 using DTO.STATIONDTO;
 
 namespace chargeProject.Controllers
@@ -8,17 +8,17 @@ namespace chargeProject.Controllers
     [ApiController]
     public class ChargingStationsController : ControllerBase
     {
-        private readonly InterfaceChargingStations _stationsRepository;
+        private readonly IChargingStationsService _chargingStationsService;
 
-        public ChargingStationsController(InterfaceChargingStations stationsRepository)
+        public ChargingStationsController(IChargingStationsService _chargingStationsService)
         {
-            _stationsRepository = stationsRepository;
+            _chargingStationsService = _chargingStationsService;
         }
 
         [HttpGet]
         public async Task<IActionResult> GetAllStations()
         {
-            try { return Ok(await _stationsRepository.GetAllAsync()); }
+            try { return Ok(await _chargingStationsService.GetAllAsync()); }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
@@ -27,7 +27,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var station = await _stationsRepository.GetByIdAsync(id);
+                var station = await _chargingStationsService.GetByIdAsync(id);
                 if (station == null) return NotFound($"Station with ID {id} not found.");
                 return Ok(station);
             }
@@ -37,21 +37,21 @@ namespace chargeProject.Controllers
         [HttpGet("owner/{ownerId}")]
         public async Task<IActionResult> GetStationsByOwner(int ownerId)
         {
-            try { return Ok(await _stationsRepository.GetByOwnerIdAsync(ownerId)); }
+            try { return Ok(await _chargingStationsService.GetByOwnerIdAsync(ownerId)); }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
         [HttpGet("radius")]
         public async Task<IActionResult> GetActiveInRadius([FromQuery] double lat, [FromQuery] double lng, [FromQuery] double radius, [FromQuery] string? chargerType)
         {
-            try { return Ok(await _stationsRepository.GetActiveInRadiusAsync(lat, lng, radius, chargerType)); }
+            try { return Ok(await _chargingStationsService.GetActiveInRadiusAsync(lat, lng, radius, chargerType)); }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
         [HttpPost]
         public async Task<IActionResult> CreateStation([FromBody] CreateUpdateStationDto dto)
         {
-            try { return Ok(await _stationsRepository.AddAsync(dto)); }
+            try { return Ok(await _chargingStationsService.AddAsync(dto)); }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
@@ -60,7 +60,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var updated = await _stationsRepository.UpdateAsync(id, dto);
+                var updated = await _chargingStationsService.UpdateAsync(id, dto);
                 if (updated == null) return NotFound($"Station with ID {id} not found.");
                 return Ok(updated);
             }
@@ -72,7 +72,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var updated = await _stationsRepository.SetActiveAsync(id, isActive);
+                var updated = await _chargingStationsService.SetActiveAsync(id, isActive);
                 if (updated == null) return NotFound($"Station with ID {id} not found.");
                 return Ok(updated);
             }
@@ -84,7 +84,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var success = await _stationsRepository.DeleteAsync(id);
+                var success = await _chargingStationsService.DeleteAsync(id);
                 if (!success) return NotFound($"Station with ID {id} not found.");
                 return Ok($"Station with ID {id} deleted successfully.");
             }

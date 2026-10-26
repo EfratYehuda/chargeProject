@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using BLL.Repositories.IRepositories;
+using BLL.Services;
 
 namespace chargeProject.Controllers
 {
@@ -7,17 +7,16 @@ namespace chargeProject.Controllers
     [ApiController]
     public class StationStatusLogsController : ControllerBase
     {
-        private readonly InterfaceStationStatusLogs _logsRepository;
-
-        public StationStatusLogsController(InterfaceStationStatusLogs logsRepository)
+        private readonly IStationStatusLogsService _stationStatusLogsService;
+        public StationStatusLogsController(IStationStatusLogsService _stationStatusLogsService)
         {
-            _logsRepository = logsRepository;
+            _stationStatusLogsService = _stationStatusLogsService;
         }
 
         [HttpGet]
         public async Task<IActionResult> GetAllLogs()
         {
-            try { return Ok(await _logsRepository.GetAllAsync()); }
+            try { return Ok(await _stationStatusLogsService.GetAllAsync()); }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
@@ -26,7 +25,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var log = await _logsRepository.GetByIdAsync(id);
+                var log = await _stationStatusLogsService.GetByIdAsync(id);
                 if (log == null) return NotFound($"Log with ID {id} not found.");
                 return Ok(log);
             }
@@ -36,7 +35,7 @@ namespace chargeProject.Controllers
         [HttpGet("station/{stationId}")]
         public async Task<IActionResult> GetByStationId(int stationId)
         {
-            try { return Ok(await _logsRepository.GetByStationIdAsync(stationId)); }
+            try { return Ok(await _stationStatusLogsService.GetByStationIdAsync(stationId)); }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
@@ -45,7 +44,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var log = await _logsRepository.GetLatestByStationIdAsync(stationId);
+                var log = await _stationStatusLogsService.GetLatestByStationIdAsync(stationId);
                 if (log == null) return NotFound($"Latest log for station ID {stationId} not found.");
                 return Ok(log);
             }
@@ -57,7 +56,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var success = await _logsRepository.DeleteAsync(id);
+                var success = await _stationStatusLogsService.DeleteAsync(id);
                 if (!success) return NotFound($"Log with ID {id} not found.");
                 return Ok($"Log with ID {id} deleted successfully.");
             }

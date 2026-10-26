@@ -1,4 +1,5 @@
 ﻿using DAL.Classes;
+using DTO.STATIONDTO;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -15,5 +16,6 @@ namespace DAL.Repositories.IRepositories
         Task<ChargingStations?> UpdateAsync(ChargingStations entity);
         Task<bool> DeleteAsync(int id);
         Task<bool> OwnerExistsAsync(int ownerId);
+        //Task<object?> AddAsync(CreateUpdateStationDto dto);
     }
 }

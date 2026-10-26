@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using BLL.Repositories.IRepositories;
+using BLL.Services;
 using DTO.VEHICLESDTO;
 
 namespace chargeProject.Controllers
@@ -8,17 +8,17 @@ namespace chargeProject.Controllers
     [ApiController]
     public class UsersVehiclesController : ControllerBase
     {
-        private readonly InterfaceUsersVehicles _vehicleRepository;
+        private readonly IUsersVehiclesService usersVehiclesService;
 
-        public UsersVehiclesController(InterfaceUsersVehicles vehicleRepository)
+        public UsersVehiclesController(IUsersVehiclesService usersVehiclesService)
         {
-            _vehicleRepository = vehicleRepository;
+            usersVehiclesService = usersVehiclesService;
         }
 
         [HttpGet]
         public async Task<IActionResult> GetAllVehicles()
         {
-            try { return Ok(await _vehicleRepository.GetAllAsync()); }
+            try { return Ok(await usersVehiclesService.GetAllAsync()); }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
@@ -27,7 +27,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var vehicle = await _vehicleRepository.GetByIdAsync(id);
+                var vehicle = await usersVehiclesService.GetByIdAsync(id);
                 if (vehicle == null) return NotFound($"Vehicle with ID {id} not found.");
                 return Ok(vehicle);
             }
@@ -37,14 +37,14 @@ namespace chargeProject.Controllers
         [HttpGet("driver/{driverId}")]
         public async Task<IActionResult> GetByDriverId(int driverId)
         {
-            try { return Ok(await _vehicleRepository.GetByDriverIdAsync(driverId)); }
+            try { return Ok(await usersVehiclesService.GetByDriverIdAsync(driverId)); }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
         [HttpPost]
         public async Task<IActionResult> CreateVehicle([FromBody] CreateUpdateVehicleDto dto)
         {
-            try { return Ok(await _vehicleRepository.AddAsync(dto)); }
+            try { return Ok(await usersVehiclesService.AddAsync(dto)); }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
@@ -53,7 +53,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var updated = await _vehicleRepository.UpdateAsync(id, dto);
+                var updated = await usersVehiclesService.UpdateAsync(id, dto);
                 if (updated == null) return NotFound($"Vehicle with ID {id} not found.");
                 return Ok(updated);
             }
@@ -65,7 +65,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var success = await _vehicleRepository.DeleteAsync(id);
+                var success = await usersVehiclesService.DeleteAsync(id);
                 if (!success) return NotFound($"Vehicle with ID {id} not found.");
                 return Ok($"Vehicle with ID {id} deleted successfully.");
             }

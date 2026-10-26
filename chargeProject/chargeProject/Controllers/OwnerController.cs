@@ -1,5 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using BLL.Repositories.IRepositories;
+﻿using BLL.Services;
+using Microsoft.AspNetCore.Mvc;
+using BLL.Services;
 using DTO.USERDTO;
 
 namespace chargeProject.Controllers
@@ -8,17 +9,17 @@ namespace chargeProject.Controllers
     [ApiController]
     public class OwnerController : ControllerBase
     {
-        private readonly InterfaceOwner _ownerRepository;
+        private readonly IOwnersService _ownersService;
 
-        public OwnerController(InterfaceOwner ownerRepository)
+        public OwnerController(IOwnersService _ownersService)
         {
-            _ownerRepository = ownerRepository;
+            _ownersService = _ownersService;
         }
 
         [HttpGet]
         public async Task<IActionResult> GetAllOwners()
         {
-            try { return Ok(await _ownerRepository.GetAllAsync()); }
+            try { return Ok(await _ownersService.GetAllAsync()); }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
@@ -27,7 +28,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var owner = await _ownerRepository.GetByIdAsync(id);
+                var owner = await _ownersService.GetByIdAsync(id);
                 if (owner == null) return NotFound($"Owner with ID {id} not found.");
                 return Ok(owner);
             }
@@ -39,7 +40,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var owner = await _ownerRepository.GetByUserIdAsync(userId);
+                var owner = await _ownersService.GetByUserIdAsync(userId);
                 if (owner == null) return NotFound($"Owner with User ID {userId} not found.");
                 return Ok(owner);
             }
@@ -51,7 +52,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var dashboard = await _ownerRepository.GetDashboardAsync(id);
+                var dashboard = await _ownersService.GetDashboardAsync(id);
                 if (dashboard == null) return NotFound($"Dashboard for owner ID {id} not found.");
                 return Ok(dashboard);
             }
@@ -61,7 +62,7 @@ namespace chargeProject.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateOwner([FromBody] CreateOwnerDto dto)
         {
-            try { return Ok(await _ownerRepository.AddAsync(dto)); }
+            try { return Ok(await _ownersService.AddAsync(dto)); }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
@@ -70,7 +71,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var success = await _ownerRepository.DeleteAsync(id);
+                var success = await _ownersService.DeleteAsync(id);
                 if (!success) return NotFound($"Owner with ID {id} not found.");
                 return Ok($"Owner with ID {id} deleted successfully.");
             }

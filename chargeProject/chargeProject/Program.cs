@@ -1,9 +1,9 @@
 using DAL.Data;
 using Microsoft.EntityFrameworkCore;
 using BLL.Mapper;
-using BLL.Repositories.IRepositories;
-using BLL.Repositories.ClassRepositories;
-using Microsoft.Extensions.Options;
+using BLL.Services;
+using DAL.Repositories.IRepositories;
+using DAL.Repositories.ClassRepositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +25,15 @@ builder.Services.AddScoped<InterfaceChargingStations, ChargingStationsRepository
 builder.Services.AddScoped<InterfaceChargeBooking, ChargeBookingRepository>();
 builder.Services.AddScoped<InterfaceReviewsToCharge, ReviewsToChargeRepository>();
 builder.Services.AddScoped<InterfaceStationStatusLogs, StationStatusLogsRepository>();
+
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IDriversService, DriversService>();
+builder.Services.AddScoped<IOwnersService, OwnersService>();
+builder.Services.AddScoped<IUsersVehiclesService, UsersVehiclesService>();
+builder.Services.AddScoped<IChargingStationsService, ChargingStationsService>();
+builder.Services.AddScoped<IChargeBookingService, ChargeBookingService>();
+builder.Services.AddScoped<IReviewsToChargeService, ReviewsToChargeService>();
+builder.Services.AddScoped<IStationStatusLogsService, StationStatusLogsService>();
 
 var app = builder.Build();
 
