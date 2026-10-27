@@ -22,7 +22,7 @@ namespace DAL.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("DAL.ChargeBooking", b =>
+            modelBuilder.Entity("DAL.Classes.ChargeBooking", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -66,7 +66,7 @@ namespace DAL.Migrations
                     b.ToTable("ChargeBookings");
                 });
 
-            modelBuilder.Entity("DAL.ChargingStations", b =>
+            modelBuilder.Entity("DAL.Classes.ChargingStations", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -111,7 +111,7 @@ namespace DAL.Migrations
                     b.ToTable("ChargingStations");
                 });
 
-            modelBuilder.Entity("DAL.Drivers", b =>
+            modelBuilder.Entity("DAL.Classes.Drivers", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -130,7 +130,7 @@ namespace DAL.Migrations
                     b.ToTable("Drivers");
                 });
 
-            modelBuilder.Entity("DAL.Owner", b =>
+            modelBuilder.Entity("DAL.Classes.Owner", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -149,7 +149,7 @@ namespace DAL.Migrations
                     b.ToTable("Owners");
                 });
 
-            modelBuilder.Entity("DAL.ReviewsToCharge", b =>
+            modelBuilder.Entity("DAL.Classes.ReviewsToCharge", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -183,7 +183,7 @@ namespace DAL.Migrations
                     b.ToTable("ReviewsToCharges");
                 });
 
-            modelBuilder.Entity("DAL.StationStatusLogs", b =>
+            modelBuilder.Entity("DAL.Classes.StationStatusLogs", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -213,7 +213,7 @@ namespace DAL.Migrations
                     b.ToTable("StationStatusLogs");
                 });
 
-            modelBuilder.Entity("DAL.Users", b =>
+            modelBuilder.Entity("DAL.Classes.Users", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -227,7 +227,7 @@ namespace DAL.Migrations
 
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -243,10 +243,13 @@ namespace DAL.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Email")
+                        .IsUnique();
+
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("DAL.UsersVehicles", b =>
+            modelBuilder.Entity("DAL.Classes.UsersVehicles", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -278,21 +281,21 @@ namespace DAL.Migrations
                     b.ToTable("UsersVehicles");
                 });
 
-            modelBuilder.Entity("DAL.ChargeBooking", b =>
+            modelBuilder.Entity("DAL.Classes.ChargeBooking", b =>
                 {
-                    b.HasOne("DAL.Drivers", "Driver")
+                    b.HasOne("DAL.Classes.Drivers", "Driver")
                         .WithMany("Bookings")
                         .HasForeignKey("DriverId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("DAL.ChargingStations", "Station")
+                    b.HasOne("DAL.Classes.ChargingStations", "Station")
                         .WithMany("Bookings")
                         .HasForeignKey("StationId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("DAL.UsersVehicles", "Vehicle")
+                    b.HasOne("DAL.Classes.UsersVehicles", "Vehicle")
                         .WithMany("Bookings")
                         .HasForeignKey("VehicleId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -305,9 +308,9 @@ namespace DAL.Migrations
                     b.Navigation("Vehicle");
                 });
 
-            modelBuilder.Entity("DAL.ChargingStations", b =>
+            modelBuilder.Entity("DAL.Classes.ChargingStations", b =>
                 {
-                    b.HasOne("DAL.Owner", "Owner")
+                    b.HasOne("DAL.Classes.Owner", "Owner")
                         .WithMany("Stations")
                         .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -316,37 +319,37 @@ namespace DAL.Migrations
                     b.Navigation("Owner");
                 });
 
-            modelBuilder.Entity("DAL.Drivers", b =>
+            modelBuilder.Entity("DAL.Classes.Drivers", b =>
                 {
-                    b.HasOne("DAL.Users", "User")
+                    b.HasOne("DAL.Classes.Users", "User")
                         .WithOne("DriverProfile")
-                        .HasForeignKey("DAL.Drivers", "UserId")
+                        .HasForeignKey("DAL.Classes.Drivers", "UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("DAL.Owner", b =>
+            modelBuilder.Entity("DAL.Classes.Owner", b =>
                 {
-                    b.HasOne("DAL.Users", "User")
+                    b.HasOne("DAL.Classes.Users", "User")
                         .WithOne("OwnerProfile")
-                        .HasForeignKey("DAL.Owner", "UserId")
+                        .HasForeignKey("DAL.Classes.Owner", "UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("DAL.ReviewsToCharge", b =>
+            modelBuilder.Entity("DAL.Classes.ReviewsToCharge", b =>
                 {
-                    b.HasOne("DAL.ChargeBooking", "Booking")
+                    b.HasOne("DAL.Classes.ChargeBooking", "Booking")
                         .WithOne("Review")
-                        .HasForeignKey("DAL.ReviewsToCharge", "ChargeBookingId")
+                        .HasForeignKey("DAL.Classes.ReviewsToCharge", "ChargeBookingId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("DAL.Drivers", "Driver")
+                    b.HasOne("DAL.Classes.Drivers", "Driver")
                         .WithMany("Reviews")
                         .HasForeignKey("DriverId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -357,15 +360,15 @@ namespace DAL.Migrations
                     b.Navigation("Driver");
                 });
 
-            modelBuilder.Entity("DAL.StationStatusLogs", b =>
+            modelBuilder.Entity("DAL.Classes.StationStatusLogs", b =>
                 {
-                    b.HasOne("DAL.Drivers", "CurrentDriver")
+                    b.HasOne("DAL.Classes.Drivers", "CurrentDriver")
                         .WithMany()
                         .HasForeignKey("CurrentDriverId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("DAL.ChargingStations", "Station")
+                    b.HasOne("DAL.Classes.ChargingStations", "Station")
                         .WithMany("Logs")
                         .HasForeignKey("StationId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -376,9 +379,9 @@ namespace DAL.Migrations
                     b.Navigation("Station");
                 });
 
-            modelBuilder.Entity("DAL.UsersVehicles", b =>
+            modelBuilder.Entity("DAL.Classes.UsersVehicles", b =>
                 {
-                    b.HasOne("DAL.Drivers", "Driver")
+                    b.HasOne("DAL.Classes.Drivers", "Driver")
                         .WithMany("Vehicles")
                         .HasForeignKey("DriverId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -387,20 +390,20 @@ namespace DAL.Migrations
                     b.Navigation("Driver");
                 });
 
-            modelBuilder.Entity("DAL.ChargeBooking", b =>
+            modelBuilder.Entity("DAL.Classes.ChargeBooking", b =>
                 {
                     b.Navigation("Review")
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("DAL.ChargingStations", b =>
+            modelBuilder.Entity("DAL.Classes.ChargingStations", b =>
                 {
                     b.Navigation("Bookings");
 
                     b.Navigation("Logs");
                 });
 
-            modelBuilder.Entity("DAL.Drivers", b =>
+            modelBuilder.Entity("DAL.Classes.Drivers", b =>
                 {
                     b.Navigation("Bookings");
 
@@ -409,12 +412,12 @@ namespace DAL.Migrations
                     b.Navigation("Vehicles");
                 });
 
-            modelBuilder.Entity("DAL.Owner", b =>
+            modelBuilder.Entity("DAL.Classes.Owner", b =>
                 {
                     b.Navigation("Stations");
                 });
 
-            modelBuilder.Entity("DAL.Users", b =>
+            modelBuilder.Entity("DAL.Classes.Users", b =>
                 {
                     b.Navigation("DriverProfile")
                         .IsRequired();
@@ -423,7 +426,7 @@ namespace DAL.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("DAL.UsersVehicles", b =>
+            modelBuilder.Entity("DAL.Classes.UsersVehicles", b =>
                 {
                     b.Navigation("Bookings");
                 });

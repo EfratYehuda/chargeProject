@@ -20,6 +20,7 @@ namespace DAL.Data
         {
             base.OnModelCreating(modelBuilder);
 
+            modelBuilder.Entity<Users>().HasIndex(u => u.Email).IsUnique();
             // Avoid SQL Server "multiple cascade paths" errors
             foreach (var fk in modelBuilder.Model.GetEntityTypes()
                                                  .SelectMany(e => e.GetForeignKeys()))
