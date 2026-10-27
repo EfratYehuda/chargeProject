@@ -10,9 +10,9 @@ namespace chargeProject.Controllers
     {
         private readonly IChargeBookingService _chargeBookingService;
 
-        public ChargeBookingController(IChargeBookingService _chargeBookingService)
+        public ChargeBookingController(IChargeBookingService chargeBookingService)
         {
-            _chargeBookingService = _chargeBookingService;
+            _chargeBookingService = chargeBookingService;
         }
 
         // 1. GET: api/ChargeBooking - שליפת כל ההזמנות

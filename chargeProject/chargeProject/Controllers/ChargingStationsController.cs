@@ -10,9 +10,9 @@ namespace chargeProject.Controllers
     {
         private readonly IChargingStationsService _chargingStationsService;
 
-        public ChargingStationsController(IChargingStationsService _chargingStationsService)
+        public ChargingStationsController(IChargingStationsService chargingStationsService)
         {
-            _chargingStationsService = _chargingStationsService;
+            _chargingStationsService = chargingStationsService;
         }
 
         [HttpGet]

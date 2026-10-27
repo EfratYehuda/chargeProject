@@ -3,6 +3,7 @@ using DAL.Classes;
 using DAL.Repositories.IRepositories;
 using DTO; // עבור UserRoles
 using DTO.USERDTO;
+using Microsoft.AspNetCore.Identity;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -13,11 +14,13 @@ namespace BLL.Services
     {
         private readonly InterfaceUser _userRepo;
         private readonly IMapper _mapper;
+        private readonly IPasswordHasher<Users> _hasher; 
 
-        public UserService(InterfaceUser userRepo, IMapper mapper)
+        public UserService(InterfaceUser userRepo, IMapper mapper, IPasswordHasher<Users> hasher)
         {
             _userRepo = userRepo;
             _mapper = mapper;
+            _hasher = hasher;
         }
 
         public async Task<UserProfileDto?> GetByIdAsync(int id)
@@ -43,14 +46,13 @@ namespace BLL.Services
             return await _userRepo.EmailExistsAsync(email);
         }
 
-        public async Task<UserProfileDto> AddAsync(RegisterRequestDto dto, string passwordHash)
+        public async Task<UserProfileDto> AddAsync(RegisterRequestDto dto)
         {
             if (await _userRepo.EmailExistsAsync(dto.Email))
                 throw new InvalidOperationException("כתובת האימייל כבר קיימת במערכת");
 
             var entity = _mapper.Map<Users>(dto);
-            entity.PasswordHash = passwordHash;
-
+            entity.PasswordHash = _hasher.HashPassword(entity, dto.Password);
             // הלוגיקה העסקית של יצירת הפרופיל מתבצעת כאן
             if (dto.Role == UserRoles.Driver)
                 entity.DriverProfile = new Drivers();

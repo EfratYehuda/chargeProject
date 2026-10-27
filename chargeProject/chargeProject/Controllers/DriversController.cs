@@ -11,9 +11,9 @@ namespace chargeProject.Controllers
     {
         private readonly IDriversService _driversService;
 
-        public DriversController(IDriversService _driversService)
+        public DriversController(IDriversService driversService)
         {
-            this._driversService = _driversService;
+           _driversService = driversService;
         }
 
         [HttpGet]

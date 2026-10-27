@@ -8,17 +8,17 @@ namespace chargeProject.Controllers
     [ApiController]
     public class UsersVehiclesController : ControllerBase
     {
-        private readonly IUsersVehiclesService usersVehiclesService;
+        private readonly IUsersVehiclesService _usersVehiclesService;
 
         public UsersVehiclesController(IUsersVehiclesService usersVehiclesService)
         {
-            usersVehiclesService = usersVehiclesService;
+            _usersVehiclesService = usersVehiclesService;
         }
 
         [HttpGet]
         public async Task<IActionResult> GetAllVehicles()
         {
-            try { return Ok(await usersVehiclesService.GetAllAsync()); }
+            try { return Ok(await _usersVehiclesService.GetAllAsync()); }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
@@ -27,7 +27,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var vehicle = await usersVehiclesService.GetByIdAsync(id);
+                var vehicle = await _usersVehiclesService.GetByIdAsync(id);
                 if (vehicle == null) return NotFound($"Vehicle with ID {id} not found.");
                 return Ok(vehicle);
             }
@@ -37,14 +37,14 @@ namespace chargeProject.Controllers
         [HttpGet("driver/{driverId}")]
         public async Task<IActionResult> GetByDriverId(int driverId)
         {
-            try { return Ok(await usersVehiclesService.GetByDriverIdAsync(driverId)); }
+            try { return Ok(await _usersVehiclesService.GetByDriverIdAsync(driverId)); }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
         [HttpPost]
         public async Task<IActionResult> CreateVehicle([FromBody] CreateUpdateVehicleDto dto)
         {
-            try { return Ok(await usersVehiclesService.AddAsync(dto)); }
+            try { return Ok(await _usersVehiclesService.AddAsync(dto)); }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
@@ -53,7 +53,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var updated = await usersVehiclesService.UpdateAsync(id, dto);
+                var updated = await _usersVehiclesService.UpdateAsync(id, dto);
                 if (updated == null) return NotFound($"Vehicle with ID {id} not found.");
                 return Ok(updated);
             }
@@ -65,7 +65,7 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var success = await usersVehiclesService.DeleteAsync(id);
+                var success = await _usersVehiclesService.DeleteAsync(id);
                 if (!success) return NotFound($"Vehicle with ID {id} not found.");
                 return Ok($"Vehicle with ID {id} deleted successfully.");
             }

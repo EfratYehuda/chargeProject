@@ -11,9 +11,9 @@ namespace chargeProject.Controllers
     {
         private readonly IOwnersService _ownersService;
 
-        public OwnerController(IOwnersService _ownersService)
+        public OwnerController(IOwnersService ownersService)
         {
-            _ownersService = _ownersService;
+            _ownersService = ownersService;
         }
 
         [HttpGet]

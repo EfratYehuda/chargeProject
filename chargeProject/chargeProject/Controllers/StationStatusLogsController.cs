@@ -8,9 +8,9 @@ namespace chargeProject.Controllers
     public class StationStatusLogsController : ControllerBase
     {
         private readonly IStationStatusLogsService _stationStatusLogsService;
-        public StationStatusLogsController(IStationStatusLogsService _stationStatusLogsService)
+        public StationStatusLogsController(IStationStatusLogsService stationStatusLogsService)
         {
-            _stationStatusLogsService = _stationStatusLogsService;
+            _stationStatusLogsService = stationStatusLogsService;
         }
 
         [HttpGet]

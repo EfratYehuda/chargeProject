@@ -10,9 +10,9 @@ namespace chargeProject.Controllers
     {
         private readonly IReviewsToChargeService _reviewsToChargeService;
 
-        public ReviewsToChargeController(IReviewsToChargeService _reviewsToChargeService)
+        public ReviewsToChargeController(IReviewsToChargeService reviewsToChargeService)
         {
-            _reviewsToChargeService = _reviewsToChargeService;
+            _reviewsToChargeService = reviewsToChargeService;
         }
 
         [HttpGet]

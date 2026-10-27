@@ -1,9 +1,11 @@
-using DAL.Data;
-using Microsoft.EntityFrameworkCore;
 using BLL.Mapper;
 using BLL.Services;
-using DAL.Repositories.IRepositories;
+using DAL.Classes;
+using DAL.Data;
 using DAL.Repositories.ClassRepositories;
+using DAL.Repositories.IRepositories;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -34,13 +36,18 @@ builder.Services.AddScoped<IChargingStationsService, ChargingStationsService>();
 builder.Services.AddScoped<IChargeBookingService, ChargeBookingService>();
 builder.Services.AddScoped<IReviewsToChargeService, ReviewsToChargeService>();
 builder.Services.AddScoped<IStationStatusLogsService, StationStatusLogsService>();
-
+builder.Services.AddScoped<IPasswordHasher<Users>, PasswordHasher<Users>>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/openapi/v1.json", "v1");
+    });
 }
 
 app.UseHttpsRedirection();

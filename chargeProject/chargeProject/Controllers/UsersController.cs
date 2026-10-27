@@ -10,9 +10,9 @@ namespace chargeProject.Controllers
     {
         private readonly IUserService _userService;
 
-        public UsersController(IUserService _userService)
+        public UsersController(IUserService userService)
         {
-            _userService = _userService;
+            _userService = userService;
         }
 
         [HttpGet]
@@ -35,9 +35,9 @@ namespace chargeProject.Controllers
         }
 
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterRequestDto dto, [FromQuery] string passwordHash)
+        public async Task<IActionResult> Register([FromBody] RegisterRequestDto dto)
         {
-            try { return Ok(await _userService.AddAsync(dto, passwordHash)); }
+            try { return Ok(await _userService.AddAsync(dto)); }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
