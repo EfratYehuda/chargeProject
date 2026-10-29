@@ -7,6 +7,8 @@ namespace DAL.Repositories.IRepositories
 {
     public interface InterfaceChargingStations
     {
+        Task<ChargingStations>? GetOwnerAsync(int id, int userId);
+       
         Task<ChargingStations?> GetByIdAsync(int id);
         Task<List<ChargingStations>> GetAllAsync();
         Task<List<ChargingStations>> GetByOwnerIdAsync(int ownerId);

@@ -17,12 +17,14 @@ namespace DAL.Repositories.ClassRepositories
             _context = context;
         }
 
-        // צירפתי כאן את ההזמנות (לחישוב דירוג) והלוגים (לסטטוס) כפי שמוגדר במאפר
+        // צירפתי כאן את ההזמנות (לחישוב דירוג) והלוגים לסטטוס 
         private IQueryable<ChargingStations> Stations => _context.Set<ChargingStations>()
             .Include(s => s.Bookings).ThenInclude(b => b.Review)
             .Include(s => s.Logs)
             .AsNoTracking();
+        public async Task<ChargingStations>? GetOwnerAsync(int id, int userId) =>
 
+           await Stations.FirstOrDefaultAsync(r => r.Id == id && r.OwnerId == userId);
         public async Task<ChargingStations?> GetByIdAsync(int id) =>
             await Stations.FirstOrDefaultAsync(s => s.Id == id);
 

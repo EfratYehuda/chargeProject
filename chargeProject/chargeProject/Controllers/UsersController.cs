@@ -1,6 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using BLL.Services;
+﻿using BLL.Services;
 using DTO.USERDTO;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace chargeProject.Controllers
 {
@@ -33,7 +34,7 @@ namespace chargeProject.Controllers
             }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
-
+        [AllowAnonymous]
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequestDto dto)
         {
@@ -63,6 +64,16 @@ namespace chargeProject.Controllers
                 return Ok($"User with ID {id} deleted successfully.");
             }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
+        }
+        [AllowAnonymous]
+        [HttpPost("login")]
+        public async Task<ActionResult> Login(LoginRequestDto dto)
+        {
+            var result = await _userService.LoginAsync(dto);
+            if (result is null)
+                return Unauthorized("Wrong email or password.");
+
+            return Ok(result);
         }
     }
 }

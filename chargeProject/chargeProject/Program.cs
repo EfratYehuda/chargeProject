@@ -4,9 +4,14 @@ using DAL.Classes;
 using DAL.Data;
 using DAL.Repositories.ClassRepositories;
 using DAL.Repositories.IRepositories;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using MyApp.BLL.Services;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,8 +25,37 @@ builder.Services.AddOpenApi(options =>
 });
 builder.Services.AddDbContext<DAL.Data.AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+var jwtKey = builder.Configuration["Jwt:Key"];
+if (string.IsNullOrWhiteSpace(jwtKey))
+    throw new InvalidOperationException("Jwt:Key is missing.Set the environment variable Jwt__Key.");
 
-builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+
+            ValidateAudience = true,
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero,
+
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        };
+    });
+//DAL
+builder.Services.AddAuthorization(options =>
+{
+    // כל נקודת קצה בלי [Authorize] או [AllowAnonymous] תדרוש טוקן
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+}); builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());
 builder.Services.AddScoped<InterfaceUser, UserRepository>();
 builder.Services.AddScoped<InterfaceDriver, DriversRepository>();
 builder.Services.AddScoped<InterfaceOwner, OwnerRepository>();
@@ -30,7 +64,8 @@ builder.Services.AddScoped<InterfaceChargingStations, ChargingStationsRepository
 builder.Services.AddScoped<InterfaceChargeBooking, ChargeBookingRepository>();
 builder.Services.AddScoped<InterfaceReviewsToCharge, ReviewsToChargeRepository>();
 builder.Services.AddScoped<InterfaceStationStatusLogs, StationStatusLogsRepository>();
-
+//BLL
+builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IDriversService, DriversService>();
 builder.Services.AddScoped<IOwnersService, OwnersService>();
@@ -54,7 +89,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+// הסדר חשוב: קודם "מי את
 
+app.UseAuthentication();
+//אחר כך "מה מותר לך
 app.UseAuthorization();
 
 app.MapControllers();
