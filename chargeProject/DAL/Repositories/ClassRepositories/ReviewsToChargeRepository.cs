@@ -65,6 +65,16 @@ namespace DAL.Repositories.ClassRepositories
             return true;
         }
 
+        // --- אבטחת IDOR ---
+        public async Task<ReviewsToCharge?> GetOwnedAsync(int id, int driverId) =>
+            await ReviewsQuery.FirstOrDefaultAsync(r => r.Id == id && r.DriverId == driverId);
+
+        public async Task<int?> GetDriverIdByUserIdAsync(int userId)
+        {
+            var driver = await _context.Set<Drivers>().FirstOrDefaultAsync(d => d.UserId == userId);
+            return driver?.Id;
+        }
+
         // --- עזרים ---
         public async Task<ChargeBooking?> GetBookingByIdAsync(int bookingId) =>
             await _context.Set<ChargeBooking>().AsNoTracking().FirstOrDefaultAsync(b => b.Id == bookingId);

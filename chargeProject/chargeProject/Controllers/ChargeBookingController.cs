@@ -1,11 +1,14 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using DTO.VEHICLESDTO;
 using BLL.Services;
+using System.Security.Claims;
 
 namespace chargeProject.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class ChargeBookingController : ControllerBase
     {
         private readonly IChargeBookingService _chargeBookingService;
@@ -16,6 +19,7 @@ namespace chargeProject.Controllers
         }
 
         // 1. GET: api/ChargeBooking - שליפת כל ההזמנות
+        [AllowAnonymous]
         [HttpGet]
         public async Task<IActionResult> GetAllBookings()
         {
@@ -31,6 +35,7 @@ namespace chargeProject.Controllers
         }
 
         // 2. GET: api/ChargeBooking/5 - שליפת הזמנה לפי מזהה
+        [AllowAnonymous]
         [HttpGet("{id}")]
         public async Task<IActionResult> GetBookingById(int id)
         {
@@ -69,7 +74,7 @@ namespace chargeProject.Controllers
             }
         }
 
-        // 4. PUT: api/ChargeBooking/5 - עדכון הזמנה קיימת
+        // 4. PUT: api/ChargeBooking/5 - עדכון הזמנה קיימת (מאובטח IDOR)
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateBooking(int id, [FromBody] CreateChargeBookingDto updatedBookingDto)
         {
@@ -80,10 +85,19 @@ namespace chargeProject.Controllers
 
             try
             {
-                var updatedBooking = await _chargeBookingService.UpdateAsync(id, updatedBookingDto);
+                var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int userId))
+                {
+                    return Unauthorized("User ID is missing in token.");
+                }
+
+                int? driverId = await _chargeBookingService.GetDriverIdByUserIdAsync(userId);
+                if (driverId == null) return Unauthorized("User is not a driver.");
+
+                var updatedBooking = await _chargeBookingService.UpdateAsync(id, driverId.Value, updatedBookingDto);
                 if (updatedBooking == null)
                 {
-                    return NotFound($"Booking with ID {id} was not found for update.");
+                    return NotFound($"Booking with ID {id} was not found or does not belong to you.");
                 }
                 return Ok(updatedBooking);
             }
@@ -93,16 +107,25 @@ namespace chargeProject.Controllers
             }
         }
 
-        // 5. PATCH: api/ChargeBooking/5/status - עדכון סטטוס בלבד
+        // 5. PATCH: api/ChargeBooking/5/status - עדכון סטטוס בלבד (מאובטח IDOR)
         [HttpPatch("{id}/status")]
         public async Task<IActionResult> UpdateBookingStatus(int id, [FromQuery] string status)
         {
             try
             {
-                var updatedBooking = await _chargeBookingService.UpdateStatusAsync(id, status);
+                var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int userId))
+                {
+                    return Unauthorized("User ID is missing in token.");
+                }
+
+                int? driverId = await _chargeBookingService.GetDriverIdByUserIdAsync(userId);
+                if (driverId == null) return Unauthorized("User is not a driver.");
+
+                var updatedBooking = await _chargeBookingService.UpdateStatusAsync(id, driverId.Value, status);
                 if (updatedBooking == null)
                 {
-                    return NotFound($"Booking with ID {id} was not found.");
+                    return NotFound($"Booking with ID {id} was not found or does not belong to you.");
                 }
                 return Ok(updatedBooking);
             }
@@ -112,16 +135,25 @@ namespace chargeProject.Controllers
             }
         }
 
-        // 6. DELETE: api/ChargeBooking/5 - מחיקת הזמנה
+        // 6. DELETE: api/ChargeBooking/5 - מחיקת הזמנה (מאובטח IDOR)
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteBooking(int id)
         {
             try
             {
-                var success = await _chargeBookingService.DeleteAsync(id);
+                var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int userId))
+                {
+                    return Unauthorized("User ID is missing in token.");
+                }
+
+                int? driverId = await _chargeBookingService.GetDriverIdByUserIdAsync(userId);
+                if (driverId == null) return Unauthorized("User is not a driver.");
+
+                var success = await _chargeBookingService.DeleteAsync(id, driverId.Value);
                 if (!success)
                 {
-                    return NotFound($"Booking with ID {id} was not found.");
+                    return NotFound($"Booking with ID {id} was not found or does not belong to you.");
                 }
 
                 return Ok($"Booking with ID {id} was deleted successfully.");

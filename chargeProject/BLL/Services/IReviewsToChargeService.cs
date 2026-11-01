@@ -14,6 +14,11 @@ namespace BLL.Services
         Task<ReviewDto?> GetByBookingIdAsync(int bookingId);
         Task<double?> GetStationAverageRatingAsync(int stationId);
         Task<ReviewDto> AddAsync(CreateReviewDto dto);
-        Task<bool> DeleteAsync(int id);
+
+        // --- מעודכן עם driverId לאבטחת IDOR ---
+        Task<bool> DeleteAsync(int id, int driverId);
+
+        // מתודת עזר לתרגום UserId ל-DriverId
+        Task<int?> GetDriverIdByUserIdAsync(int userId);
     }
 }

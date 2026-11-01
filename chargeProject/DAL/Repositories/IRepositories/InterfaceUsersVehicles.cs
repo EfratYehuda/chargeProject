@@ -13,6 +13,10 @@ namespace DAL.Repositories.IRepositories
         Task<UsersVehicles> UpdateAsync(UsersVehicles entity);
         Task<bool> DeleteAsync(int id);
 
+        // פונקציות עזר לאבטחת IDOR:
+        Task<UsersVehicles?> GetOwnedAsync(int id, int driverId);
+        Task<int?> GetDriverIdByUserIdAsync(int userId);
+
         // פונקציית עזר לוולידציה
         Task<bool> DriverExistsAsync(int driverId);
     }

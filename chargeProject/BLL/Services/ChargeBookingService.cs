@@ -55,7 +55,6 @@ namespace BLL.Services
 
         public async Task<ChargeBookingDto> AddAsync(CreateChargeBookingDto dto)
         {
-            // בדיקות הלוגיקה שהיו קודם ב-Repository עברו לכאן
             var station = await _bookingRepo.GetStationByIdAsync(dto.StationId)
                 ?? throw new KeyNotFoundException($"עמדה {dto.StationId} לא נמצאה");
             if (!station.IsActive)
@@ -77,9 +76,10 @@ namespace BLL.Services
             return _mapper.Map<ChargeBookingDto>(savedEntity);
         }
 
-        public async Task<ChargeBookingDto?> UpdateAsync(int id, CreateChargeBookingDto dto)
+        // --- אבטחת IDOR: עדכון הזמנה רק אם היא שייכת לנהג ---
+        public async Task<ChargeBookingDto?> UpdateAsync(int id, int driverId, CreateChargeBookingDto dto)
         {
-            var entity = await _bookingRepo.GetByIdAsync(id);
+            var entity = await _bookingRepo.GetOwnedAsync(id, driverId);
             if (entity == null) return null;
 
             entity.CurrentBatteryPercent = dto.CurrentBatteryPercent;
@@ -90,9 +90,10 @@ namespace BLL.Services
             return _mapper.Map<ChargeBookingDto>(updatedEntity);
         }
 
-        public async Task<ChargeBookingDto?> UpdateStatusAsync(int id, string status)
+        // --- אבטחת IDOR: עדכון סטטוס רק אם ההזמנה שייכת לנהג ---
+        public async Task<ChargeBookingDto?> UpdateStatusAsync(int id, int driverId, string status)
         {
-            var entity = await _bookingRepo.GetByIdAsync(id);
+            var entity = await _bookingRepo.GetOwnedAsync(id, driverId);
             if (entity == null) return null;
 
             entity.Status = status;
@@ -114,9 +115,18 @@ namespace BLL.Services
             return staleBookings.Count;
         }
 
-        public async Task<bool> DeleteAsync(int id)
+        // --- אבטחת IDOR: מחיקת הזמנה רק אם היא שייכת לנהג ---
+        public async Task<bool> DeleteAsync(int id, int driverId)
         {
+            var entity = await _bookingRepo.GetOwnedAsync(id, driverId);
+            if (entity == null) return false;
+
             return await _bookingRepo.DeleteAsync(id);
+        }
+
+        public async Task<int?> GetDriverIdByUserIdAsync(int userId)
+        {
+            return await _bookingRepo.GetDriverIdByUserIdAsync(userId);
         }
     }
 }

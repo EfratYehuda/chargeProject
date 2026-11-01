@@ -16,7 +16,11 @@ namespace DAL.Repositories.IRepositories
         Task<ReviewsToCharge> AddAsync(ReviewsToCharge entity);
         Task<bool> DeleteAsync(int id);
 
-        // עזר לוולידציה (הועבר מהקוד הישן)
+        // --- פונקציות עזר לאבטחת IDOR ---
+        Task<ReviewsToCharge?> GetOwnedAsync(int id, int driverId);
+        Task<int?> GetDriverIdByUserIdAsync(int userId);
+
+        // עזר לוולידציה
         Task<ChargeBooking?> GetBookingByIdAsync(int bookingId);
         Task<bool> ReviewExistsForBookingAsync(int bookingId);
     }

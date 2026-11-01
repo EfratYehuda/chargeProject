@@ -34,6 +34,12 @@ namespace DAL.Repositories.ClassRepositories
         public async Task<List<ChargingStations>> GetByOwnerIdAsync(int ownerId) =>
             await Stations.Where(s => s.OwnerId == ownerId).ToListAsync();
 
+        public async Task<ChargingStations?> GetOwnedAsync(int id, int ownerId) =>
+            await _context.Set<ChargingStations>()
+                .Include(s => s.Bookings).ThenInclude(b => b.Review)
+                .Include(s => s.Logs)
+                .FirstOrDefaultAsync(s => s.Id == id && s.OwnerId == ownerId);
+
         public async Task<List<ChargingStations>> GetActiveInBoundingBoxAsync(double minLat, double maxLat, double minLng, double maxLng, string? chargerType)
         {
             var query = Stations.Where(s => s.IsActive
@@ -73,6 +79,12 @@ namespace DAL.Repositories.ClassRepositories
         public async Task<bool> OwnerExistsAsync(int ownerId)
         {
             return await _context.Set<Owner>().AnyAsync(o => o.Id == ownerId);
+        }
+
+        public async Task<int?> GetOwnerIdByUserIdAsync(int userId)
+        {
+            var owner = await _context.Set<Owner>().FirstOrDefaultAsync(o => o.UserId == userId);
+            return owner?.Id;
         }
     }
 }

@@ -10,8 +10,13 @@ namespace BLL.Services
         Task<List<VehicleDto>> GetAllAsync();
         Task<List<VehicleDto>> GetByDriverIdAsync(int driverId);
         Task<VehicleDto> AddAsync(CreateUpdateVehicleDto dto);
-        Task<VehicleDto?> UpdateAsync(int id, CreateUpdateVehicleDto dto);
-        Task<VehicleDto?> UpdateCurrentBatteryAsync(int id, double batteryPercent);
-        Task<bool> DeleteAsync(int id);
+
+        // מעודכן עם driverId לאבטחת IDOR:
+        Task<VehicleDto?> UpdateAsync(int id, int driverId, CreateUpdateVehicleDto dto);
+        Task<VehicleDto?> UpdateCurrentBatteryAsync(int id, int driverId, double batteryPercent);
+        Task<bool> DeleteAsync(int id, int driverId);
+
+        // מתודת עזר לחיפוש ה-DriverId לפי ה-UserId מהטוקן:
+        Task<int?> GetDriverIdByUserIdAsync(int userId);
     }
 }

@@ -53,6 +53,16 @@ namespace DAL.Repositories.ClassRepositories
             await _context.SaveChangesAsync();
             return true;
         }
+        public async Task<UsersVehicles?> GetOwnedAsync(int id, int driverId) =>
+            await _context.Set<UsersVehicles>()
+                .Include(v => v.Driver).ThenInclude(d => d.User)
+                .FirstOrDefaultAsync(v => v.Id == id && v.DriverId == driverId);
+
+        public async Task<int?> GetDriverIdByUserIdAsync(int userId)
+        {
+            var driver = await _context.Set<Drivers>().FirstOrDefaultAsync(d => d.UserId == userId);
+            return driver?.Id;
+        }
 
         public async Task<bool> DriverExistsAsync(int driverId) =>
             await _context.Set<Drivers>().AnyAsync(d => d.Id == driverId);

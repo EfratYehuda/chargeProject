@@ -1,11 +1,14 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using BLL.Services;
 using DTO.VEHICLESDTO;
+using System.Security.Claims;
 
 namespace chargeProject.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class UsersVehiclesController : ControllerBase
     {
         private readonly IUsersVehiclesService _usersVehiclesService;
@@ -15,6 +18,7 @@ namespace chargeProject.Controllers
             _usersVehiclesService = usersVehiclesService;
         }
 
+        [AllowAnonymous]
         [HttpGet]
         public async Task<IActionResult> GetAllVehicles()
         {
@@ -22,6 +26,7 @@ namespace chargeProject.Controllers
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
+        [AllowAnonymous]
         [HttpGet("{id}")]
         public async Task<IActionResult> GetVehicleById(int id)
         {
@@ -34,6 +39,7 @@ namespace chargeProject.Controllers
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
+        [AllowAnonymous]
         [HttpGet("driver/{driverId}")]
         public async Task<IActionResult> GetByDriverId(int driverId)
         {
@@ -53,8 +59,40 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var updated = await _usersVehiclesService.UpdateAsync(id, dto);
-                if (updated == null) return NotFound($"Vehicle with ID {id} not found.");
+                // שליפת ה-UserId מתוך הטוקן
+                var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int userId))
+                {
+                    return Unauthorized("User ID is missing in token.");
+                }
+
+                // המרה ל-DriverId
+                int? driverId = await _usersVehiclesService.GetDriverIdByUserIdAsync(userId);
+                if (driverId == null) return Unauthorized("User is not a driver.");
+
+                var updated = await _usersVehiclesService.UpdateAsync(id, driverId.Value, dto);
+                if (updated == null) return NotFound($"Vehicle with ID {id} not found or does not belong to you.");
+                return Ok(updated);
+            }
+            catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
+        }
+
+        [HttpPatch("{id}/battery")]
+        public async Task<IActionResult> UpdateBattery(int id, [FromQuery] double batteryPercent)
+        {
+            try
+            {
+                var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int userId))
+                {
+                    return Unauthorized("User ID is missing in token.");
+                }
+
+                int? driverId = await _usersVehiclesService.GetDriverIdByUserIdAsync(userId);
+                if (driverId == null) return Unauthorized("User is not a driver.");
+
+                var updated = await _usersVehiclesService.UpdateCurrentBatteryAsync(id, driverId.Value, batteryPercent);
+                if (updated == null) return NotFound($"Vehicle with ID {id} not found or does not belong to you.");
                 return Ok(updated);
             }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
@@ -65,8 +103,17 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var success = await _usersVehiclesService.DeleteAsync(id);
-                if (!success) return NotFound($"Vehicle with ID {id} not found.");
+                var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int userId))
+                {
+                    return Unauthorized("User ID is missing in token.");
+                }
+
+                int? driverId = await _usersVehiclesService.GetDriverIdByUserIdAsync(userId);
+                if (driverId == null) return Unauthorized("User is not a driver.");
+
+                var success = await _usersVehiclesService.DeleteAsync(id, driverId.Value);
+                if (!success) return NotFound($"Vehicle with ID {id} not found or does not belong to you.");
                 return Ok($"Vehicle with ID {id} deleted successfully.");
             }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }

@@ -1,10 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using BLL.Services;
 
 namespace chargeProject.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class StationStatusLogsController : ControllerBase
     {
         private readonly IStationStatusLogsService _stationStatusLogsService;
@@ -13,6 +15,7 @@ namespace chargeProject.Controllers
             _stationStatusLogsService = stationStatusLogsService;
         }
 
+        [AllowAnonymous]
         [HttpGet]
         public async Task<IActionResult> GetAllLogs()
         {
@@ -20,6 +23,7 @@ namespace chargeProject.Controllers
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
+        [AllowAnonymous]
         [HttpGet("{id}")]
         public async Task<IActionResult> GetLogById(int id)
         {
@@ -32,6 +36,7 @@ namespace chargeProject.Controllers
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
+        [AllowAnonymous]
         [HttpGet("station/{stationId}")]
         public async Task<IActionResult> GetByStationId(int stationId)
         {
@@ -39,6 +44,7 @@ namespace chargeProject.Controllers
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
+        [AllowAnonymous]
         [HttpGet("station/{stationId}/latest")]
         public async Task<IActionResult> GetLatestByStationId(int stationId)
         {

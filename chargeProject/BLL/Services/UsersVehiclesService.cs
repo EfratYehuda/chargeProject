@@ -49,9 +49,10 @@ namespace BLL.Services
             return _mapper.Map<VehicleDto>(fullEntity!);
         }
 
-        public async Task<VehicleDto?> UpdateAsync(int id, CreateUpdateVehicleDto dto)
+        // --- אבטחת IDOR: עדכון רכב רק אם הוא שייך לנהג ---
+        public async Task<VehicleDto?> UpdateAsync(int id, int driverId, CreateUpdateVehicleDto dto)
         {
-            var entity = await _vehicleRepo.GetByIdAsync(id);
+            var entity = await _vehicleRepo.GetOwnedAsync(id, driverId);
             if (entity == null) return null;
 
             var originalDriverId = entity.DriverId; // שמירת המזהה המקורי למניעת העברת רכב
@@ -62,12 +63,13 @@ namespace BLL.Services
             return _mapper.Map<VehicleDto>(updatedEntity);
         }
 
-        public async Task<VehicleDto?> UpdateCurrentBatteryAsync(int id, double batteryPercent)
+        // --- אבטחת IDOR: עדכון סוללה רק אם הרכב שייך לנהג ---
+        public async Task<VehicleDto?> UpdateCurrentBatteryAsync(int id, int driverId, double batteryPercent)
         {
             if (batteryPercent < 0 || batteryPercent > 100)
                 throw new ArgumentOutOfRangeException(nameof(batteryPercent), "אחוז סוללה חייב להיות בין 0 ל-100");
 
-            var entity = await _vehicleRepo.GetByIdAsync(id);
+            var entity = await _vehicleRepo.GetOwnedAsync(id, driverId);
             if (entity == null) return null;
 
             entity.CurrentBattery = batteryPercent;
@@ -76,9 +78,19 @@ namespace BLL.Services
             return _mapper.Map<VehicleDto>(updatedEntity);
         }
 
-        public async Task<bool> DeleteAsync(int id)
+        // --- אבטחת IDOR: מחיקת רכב רק אם הוא שייך לנהג ---
+        public async Task<bool> DeleteAsync(int id, int driverId)
         {
+            var entity = await _vehicleRepo.GetOwnedAsync(id, driverId);
+            if (entity == null) return false;
+
             return await _vehicleRepo.DeleteAsync(id);
+        }
+
+        // מתודת עזר הממירה את ה-UserId ל-DriverId דרך ה-Repository
+        public async Task<int?> GetDriverIdByUserIdAsync(int userId)
+        {
+            return await _vehicleRepo.GetDriverIdByUserIdAsync(userId);
         }
     }
 }

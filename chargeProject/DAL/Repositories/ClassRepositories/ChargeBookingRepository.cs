@@ -87,5 +87,15 @@ namespace DAL.Repositories.ClassRepositories
 
         public async Task<UsersVehicles?> GetVehicleByIdAsync(int vehicleId) =>
             await _context.Set<UsersVehicles>().AsNoTracking().FirstOrDefaultAsync(v => v.Id == vehicleId);
+
+        // --- אבטחת IDOR ---
+        public async Task<ChargeBooking?> GetOwnedAsync(int id, int driverId) =>
+            await Bookings.FirstOrDefaultAsync(b => b.Id == id && b.DriverId == driverId);
+
+        public async Task<int?> GetDriverIdByUserIdAsync(int userId)
+        {
+            var driver = await _context.Set<Drivers>().FirstOrDefaultAsync(d => d.UserId == userId);
+            return driver?.Id;
+        }
     }
 }

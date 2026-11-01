@@ -18,7 +18,11 @@ namespace DAL.Repositories.IRepositories
         Task<bool> HasActiveBookingAsync(int vehicleId, string[] activeStatuses);
         Task<List<ChargeBooking>> GetStaleHoldsAsync(DateTime threshold);
         Task SaveChangesAsync();
-        
+
+        // --- פונקציות עזר לאבטחת IDOR ---
+        Task<ChargeBooking?> GetOwnedAsync(int id, int driverId);
+        Task<int?> GetDriverIdByUserIdAsync(int userId);
+
         // עזר לבדיקות
         Task<ChargingStations?> GetStationByIdAsync(int stationId);
         Task<UsersVehicles?> GetVehicleByIdAsync(int vehicleId);

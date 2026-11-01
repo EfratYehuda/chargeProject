@@ -12,9 +12,15 @@ namespace BLL.Services
         Task<List<ChargeBookingDto>> GetByStationIdAsync(int stationId);
         Task<List<ChargeBookingDto>> GetByOwnerIdAsync(int ownerId);
         Task<ChargeBookingDto> AddAsync(CreateChargeBookingDto dto);
-        Task<ChargeBookingDto?> UpdateAsync(int id, CreateChargeBookingDto dto);
-        Task<ChargeBookingDto?> UpdateStatusAsync(int id, string status);
+
+        // --- מעודכן עם driverId לאבטחת IDOR ---
+        Task<ChargeBookingDto?> UpdateAsync(int id, int driverId, CreateChargeBookingDto dto);
+        Task<ChargeBookingDto?> UpdateStatusAsync(int id, int driverId, string status);
+        Task<bool> DeleteAsync(int id, int driverId);
+
         Task<int> ExpireStaleHoldsAsync();
-        Task<bool> DeleteAsync(int id);
+
+        // מתודת עזר לתרגום UserId ל-DriverId
+        Task<int?> GetDriverIdByUserIdAsync(int userId);
     }
 }

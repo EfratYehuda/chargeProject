@@ -3,6 +3,7 @@ using DTO.USERDTO;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
+
 namespace chargeProject.Controllers
 {
     [Route("api/[controller]")]
@@ -11,10 +12,12 @@ namespace chargeProject.Controllers
     {
         private readonly IUserService _userService;
 
+
         public UsersController(IUserService userService)
         {
             _userService = userService;
         }
+
 
         [HttpGet]
         public async Task<IActionResult> GetAllUsers()
@@ -22,6 +25,7 @@ namespace chargeProject.Controllers
             try { return Ok(await _userService.GetAllAsync()); }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
+
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetUserById(int id)
@@ -42,6 +46,7 @@ namespace chargeProject.Controllers
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
+
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserProfileDto dto)
         {
@@ -53,6 +58,7 @@ namespace chargeProject.Controllers
             }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
+
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(int id)
@@ -72,6 +78,7 @@ namespace chargeProject.Controllers
             var result = await _userService.LoginAsync(dto);
             if (result is null)
                 return Unauthorized("Wrong email or password.");
+
 
             return Ok(result);
         }

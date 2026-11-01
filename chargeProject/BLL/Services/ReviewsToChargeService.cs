@@ -84,9 +84,18 @@ namespace BLL.Services
             return _mapper.Map<ReviewDto>(fullEntity!);
         }
 
-        public async Task<bool> DeleteAsync(int id)
+        // --- אבטחת IDOR: מחיקת ביקורת רק אם היא שייכת לנהג ---
+        public async Task<bool> DeleteAsync(int id, int driverId)
         {
+            var entity = await _reviewRepo.GetOwnedAsync(id, driverId);
+            if (entity == null) return false;
+
             return await _reviewRepo.DeleteAsync(id);
+        }
+
+        public async Task<int?> GetDriverIdByUserIdAsync(int userId)
+        {
+            return await _reviewRepo.GetDriverIdByUserIdAsync(userId);
         }
     }
 }

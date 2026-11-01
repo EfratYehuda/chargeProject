@@ -11,8 +11,13 @@ namespace BLL.Services
         Task<List<StationDto>> GetByOwnerIdAsync(int ownerId);
         Task<List<StationDto>> GetActiveInRadiusAsync(double latitude, double longitude, double radiusKm, string? chargerType);
         Task<StationDto> AddAsync(CreateUpdateStationDto dto);
-        Task<StationDto?> UpdateAsync(int id, CreateUpdateStationDto dto);
-        Task<StationDto?> SetActiveAsync(int id, bool isActive);
-        Task<bool> DeleteAsync(int id);
+
+        // החתימות המעודכנות שכוללות ownerId לאבטחת IDOR:
+        Task<StationDto?> UpdateAsync(int id, int ownerId, CreateUpdateStationDto dto);
+        Task<StationDto?> SetActiveAsync(int id, int ownerId, bool isActive);
+        Task<bool> DeleteAsync(int id, int ownerId);
+
+        // מתודת עזר לחיפוש ה-OwnerId לפי ה-UserId מהטוקן:
+        Task<int?> GetOwnerIdByUserIdAsync(int userId);
     }
 }

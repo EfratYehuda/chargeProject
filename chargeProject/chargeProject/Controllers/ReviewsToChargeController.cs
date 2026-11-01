@@ -1,11 +1,14 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using BLL.Services;
 using DTO.REVIEWDTO;
+using System.Security.Claims;
 
 namespace chargeProject.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class ReviewsToChargeController : ControllerBase
     {
         private readonly IReviewsToChargeService _reviewsToChargeService;
@@ -15,6 +18,7 @@ namespace chargeProject.Controllers
             _reviewsToChargeService = reviewsToChargeService;
         }
 
+        [AllowAnonymous]
         [HttpGet]
         public async Task<IActionResult> GetAllReviews()
         {
@@ -22,6 +26,7 @@ namespace chargeProject.Controllers
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
+        [AllowAnonymous]
         [HttpGet("{id}")]
         public async Task<IActionResult> GetReviewById(int id)
         {
@@ -34,6 +39,7 @@ namespace chargeProject.Controllers
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
+        [AllowAnonymous]
         [HttpGet("station/{stationId}")]
         public async Task<IActionResult> GetByStationId(int stationId)
         {
@@ -41,6 +47,7 @@ namespace chargeProject.Controllers
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
+        [AllowAnonymous]
         [HttpGet("station/{stationId}/average-rating")]
         public async Task<IActionResult> GetStationAverageRating(int stationId)
         {
@@ -60,8 +67,18 @@ namespace chargeProject.Controllers
         {
             try
             {
-                var success = await _reviewsToChargeService.DeleteAsync(id);
-                if (!success) return NotFound($"Review with ID {id} not found.");
+                var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int userId))
+                {
+                    return Unauthorized("User ID is missing in token.");
+                }
+
+                int? driverId = await _reviewsToChargeService.GetDriverIdByUserIdAsync(userId);
+                if (driverId == null) return Unauthorized("User is not a driver.");
+
+                var success = await _reviewsToChargeService.DeleteAsync(id, driverId.Value);
+                if (!success) return NotFound($"Review with ID {id} not found or does not belong to you.");
+
                 return Ok($"Review with ID {id} deleted successfully.");
             }
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }

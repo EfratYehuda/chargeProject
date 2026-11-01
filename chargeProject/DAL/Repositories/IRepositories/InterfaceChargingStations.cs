@@ -12,6 +12,8 @@ namespace DAL.Repositories.IRepositories
         Task<ChargingStations?> GetByIdAsync(int id);
         Task<List<ChargingStations>> GetAllAsync();
         Task<List<ChargingStations>> GetByOwnerIdAsync(int ownerId);
+        Task<int?> GetOwnerIdByUserIdAsync(int userId);
+        Task<ChargingStations?> GetOwnedAsync(int id, int ownerId);
         // שליפה מרובעת פשוטה ב-DB
         Task<List<ChargingStations>> GetActiveInBoundingBoxAsync(double minLat, double maxLat, double minLng, double maxLng, string? chargerType);
         Task<ChargingStations> AddAsync(ChargingStations entity);

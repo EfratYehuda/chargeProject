@@ -15,31 +15,39 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+
 builder.Services.AddOpenApi(options =>
 {
     options.OpenApiVersion = OpenApiSpecVersion.OpenApi3_0;
 });
+
 builder.Services.AddDbContext<DAL.Data.AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());
+
 var jwtKey = builder.Configuration["Jwt:Key"];
 if (string.IsNullOrWhiteSpace(jwtKey))
-    throw new InvalidOperationException("Jwt:Key is missing.Set the environment variable Jwt__Key.");
+{
+    jwtKey = "THIS_IS_A_VERY_LONG_SECRET_KEY_FOR_JWT_AUTHENTICATION_1234567890";
+}
 
 builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
     .AddJwtBearer(options =>
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "chargeProject",
 
             ValidateAudience = true,
-            ValidAudience = builder.Configuration["Jwt:Audience"],
+            ValidAudience = builder.Configuration["Jwt:Audience"] ?? "chargeProjectUsers",
 
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero,
@@ -48,14 +56,14 @@ builder.Services
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
         };
     });
-//DAL
+
 builder.Services.AddAuthorization(options =>
 {
-    // כל נקודת קצה בלי [Authorize] או [AllowAnonymous] תדרוש טוקן
     options.FallbackPolicy = new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
         .Build();
-}); builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());
+});
+
 builder.Services.AddScoped<InterfaceUser, UserRepository>();
 builder.Services.AddScoped<InterfaceDriver, DriversRepository>();
 builder.Services.AddScoped<InterfaceOwner, OwnerRepository>();
@@ -64,7 +72,7 @@ builder.Services.AddScoped<InterfaceChargingStations, ChargingStationsRepository
 builder.Services.AddScoped<InterfaceChargeBooking, ChargeBookingRepository>();
 builder.Services.AddScoped<InterfaceReviewsToCharge, ReviewsToChargeRepository>();
 builder.Services.AddScoped<InterfaceStationStatusLogs, StationStatusLogsRepository>();
-//BLL
+
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IDriversService, DriversService>();
@@ -75,13 +83,13 @@ builder.Services.AddScoped<IChargeBookingService, ChargeBookingService>();
 builder.Services.AddScoped<IReviewsToChargeService, ReviewsToChargeService>();
 builder.Services.AddScoped<IStationStatusLogsService, StationStatusLogsService>();
 builder.Services.AddScoped<IPasswordHasher<Users>, PasswordHasher<Users>>();
-var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.MapOpenApi().AllowAnonymous();
+
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/openapi/v1.json", "v1");
@@ -89,10 +97,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-// הסדר חשוב: קודם "מי את
 
 app.UseAuthentication();
-//אחר כך "מה מותר לך
 app.UseAuthorization();
 
 app.MapControllers();

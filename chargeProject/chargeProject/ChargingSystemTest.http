@@ -1,0 +1,87 @@
+﻿@host = https://localhost:7096
+### ==========================================
+### שלב 1: הרשמה והתחברות של משתמש 1 (שרה)
+### ==========================================
+
+POST {{host}}/api/Users/register
+Content-Type: application/json
+
+{
+  "email": "sara@example.com",
+  "password": "Password123!"
+}
+
+###
+# @name loginSara
+POST {{host}}/api/Users/login
+Content-Type: application/json
+
+{
+  "email": "sara@example.com",
+  "password": "Password123!"
+}
+
+### שמירת הטוקן של שרה במשתנה
+@saraToken = {{loginAccessSara}}
+# הערה: אם Visual Studio תומך בשורה למעלה, הטוקן נשמר אוטומטית. 
+# לחלופין, אפשר להעתיק ידנית את הטוקן מהתשובה ולהדביק אותו במקום {{saraToken}} בהמשך.
+
+
+### ==========================================
+### שלב 2: הרשמה והתחברות של משתמש 2 (רבקה - תוקפת פוטנציאלית)
+### ==========================================
+
+POST {{host}}/api/Users/register
+Content-Type: application/json
+
+{
+  "email": "rivka@example.com",
+  "password": "Password123!"
+}
+
+###
+# @name loginRivka
+POST {{host}}/api/Users/login
+Content-Type: application/json
+
+{
+  "email": "rivka@example.com",
+  "password": "Password123!"
+}
+
+@rivkaToken = {{loginRivka.response.body.$.token}}
+
+
+### ==========================================
+### שלב 3: בדיקת אימות (Authentication)
+### ==========================================
+
+### 3א. שליפת רכבים ללא טוקן בכלל (צריך לקבל 401 Unauthorized)
+GET {{host}}/api/UsersVehicles
+
+
+### 3ב. שליפת עמדות טעינה (פעולה פתוחה לציבור [AllowAnonymous] - צריך לקבל 200 OK)
+GET {{host}}/api/ChargingStations
+
+
+### ==========================================
+### שלב 4: בדיקת IDOR ואבטחת בעלות
+### ==========================================
+
+### 4א. שרה יוצרת רכב חדש (נניח שקיבל ID מספר 1)
+POST {{host}}/api/UsersVehicles
+Authorization: Bearer {{saraToken}}
+Content-Type: application/json
+
+{
+  "vehicleModel": "Tesla Model 3",
+  "licensePlate": "123-45-678",
+  "batteryCapacity": 75.0,
+  "currentBatteryPercent": 50.0
+}
+
+
+### 4ב. רבקה מנסה לעדכן או למחוק את הרכב של שרה (ID 1)
+# התוצאה הצפויה: 404 Not Found (או Forbid) מכיוון שהרכב לא שייך לרבקה!
+DELETE {{host}}/api/UsersVehicles/1
+Authorization: Bearer {{rivkaToken}}

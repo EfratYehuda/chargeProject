@@ -1,21 +1,24 @@
-﻿using BLL.Services;
-using DAL.Repositories.IRepositories;
-using DTO.USERDTO;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using BLL.Services;
+using DTO.USERDTO;
+using System.Security.Claims;
 
 namespace chargeProject.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class DriversController : ControllerBase
     {
         private readonly IDriversService _driversService;
 
         public DriversController(IDriversService driversService)
         {
-           _driversService = driversService;
+            _driversService = driversService;
         }
 
+        [AllowAnonymous]
         [HttpGet]
         public async Task<IActionResult> GetAllDrivers()
         {
@@ -23,6 +26,7 @@ namespace chargeProject.Controllers
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
+        [AllowAnonymous]
         [HttpGet("{id}")]
         public async Task<IActionResult> GetDriverById(int id)
         {
@@ -35,6 +39,7 @@ namespace chargeProject.Controllers
             catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
         }
 
+        [AllowAnonymous]
         [HttpGet("user/{userId}")]
         public async Task<IActionResult> GetDriverByUserId(int userId)
         {
@@ -59,6 +64,19 @@ namespace chargeProject.Controllers
         {
             try
             {
+                var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int userId))
+                {
+                    return Unauthorized("User ID is missing in token.");
+                }
+
+                // וידוא IDOR: הנהג יכול למחוק רק את הפרופיל ששייך אליו
+                var driverByUser = await _driversService.GetByUserIdAsync(userId);
+                if (driverByUser == null || driverByUser.Id != id)
+                {
+                    return Forbid();
+                }
+
                 var success = await _driversService.DeleteAsync(id);
                 if (!success) return NotFound($"Driver with ID {id} not found.");
                 return Ok($"Driver with ID {id} deleted successfully.");

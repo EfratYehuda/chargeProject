@@ -39,7 +39,6 @@ namespace BLL.Services
 
         public async Task<List<StationDto>> GetActiveInRadiusAsync(double latitude, double longitude, double radiusKm, string? chargerType)
         {
-            // החישוב המתמטי עבר לסרוויס, היכן שהלוגיקה העסקית אמורה להיות
             var latDelta = radiusKm / 111.0;
             var lngDelta = radiusKm / (111.0 * Math.Max(Math.Cos(latitude * Math.PI / 180.0), 0.01));
 
@@ -63,22 +62,24 @@ namespace BLL.Services
             return await GetByIdAsync(savedEntity.Id) ?? _mapper.Map<StationDto>(savedEntity);
         }
 
-        public async Task<StationDto?> UpdateAsync(int id, CreateUpdateStationDto dto)
+        // --- אבטחת IDOR: עדכון עמדה רק אם היא שייכת לבעלים ---
+        public async Task<StationDto?> UpdateAsync(int id, int ownerId, CreateUpdateStationDto dto)
         {
-            var entity = await _stationsRepo.GetByIdAsync(id);
-            if (entity == null) return null;
+            // מחפשים את העמדה רק אם ה-Id וה-OwnerId תואמים בדיוק
+            var entity = await _stationsRepo.GetOwnedAsync(id, ownerId);
+            if (entity == null) return null; // לא נמצאה או לא שייכת למשתמש
 
-            var originalOwnerId = entity.OwnerId;
             _mapper.Map(dto, entity);
-            entity.OwnerId = originalOwnerId; // שומרים על הבעלים המקורי בעדכון
+            entity.OwnerId = ownerId; // מוודאים שהבעלים נשאר נכון
 
             var updatedEntity = await _stationsRepo.UpdateAsync(entity);
             return await GetByIdAsync(id) ?? _mapper.Map<StationDto>(updatedEntity);
         }
 
-        public async Task<StationDto?> SetActiveAsync(int id, bool isActive)
+        // --- אבטחת IDOR: שינוי סטטוס פעילות רק לבעלים של העמדה ---
+        public async Task<StationDto?> SetActiveAsync(int id, int ownerId, bool isActive)
         {
-            var entity = await _stationsRepo.GetByIdAsync(id);
+            var entity = await _stationsRepo.GetOwnedAsync(id, ownerId);
             if (entity == null) return null;
 
             entity.IsActive = isActive;
@@ -87,9 +88,18 @@ namespace BLL.Services
             return await GetByIdAsync(id) ?? _mapper.Map<StationDto>(updatedEntity);
         }
 
-        public async Task<bool> DeleteAsync(int id)
+        // --- אבטחת IDOR: מחיקת עמדה רק אם היא שייכת לבעלים ---
+        public async Task<bool> DeleteAsync(int id, int ownerId)
         {
+            var entity = await _stationsRepo.GetOwnedAsync(id, ownerId);
+            if (entity == null) return false;
+
             return await _stationsRepo.DeleteAsync(id);
+        }
+
+        public async Task<int?> GetOwnerIdByUserIdAsync(int userId)
+        {
+            return await _stationsRepo.GetOwnerIdByUserIdAsync(userId);
         }
     }
 }
