@@ -6,9 +6,32 @@ using DAL.Repositories.ClassRepositories;
 using DAL.Repositories.IRepositories;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.AI;
 using Microsoft.OpenApi;
+using OpenAI;
+using System.ClientModel;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ---------AI agent
+var apiKey = builder.Configuration["GEMINI:APIKEY"]
+    ?? throw new InvalidOperationException("Gemini:ApiKey is missing");
+
+// הכתובת של Gemini שמדברת בפורמט של OpenAI
+var options = new OpenAIClientOptions
+{
+    Endpoint = new Uri("https://generativelanguage.googleapis.com/v1beta/openai/")
+};
+
+IChatClient innerClient = new OpenAIClient(new ApiKeyCredential(apiKey), options)
+    .GetChatClient("gemini-3.8-flash")
+    .AsIChatClient();
+
+
+builder.Services.AddChatClient(innerClient)
+    .UseFunctionInvocation();   // מריץ את הכלים שהמודל מבקש
+
+builder.Services.AddScoped<IAgentService, AgentService>();
 
 // Add services to the container.
 
@@ -59,4 +82,20 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+
+//// בדיקה ישירה של ה-AgentService בעליית השרת
+//using (var scope = app.Services.CreateScope())
+//{
+//    var agent = scope.ServiceProvider.GetRequiredService<BLL.Services.IAgentService>();
+//    Console.WriteLine(">>> שואל את האייג'נט האמיתי...");
+
+//    var reply = await agent.AskAsync(new List<DTO.AIDTO.ChatMessageDto>
+//    {
+//        new DTO.AIDTO.ChatMessageDto { Role = "user", Text = "שלום, תציג את עצמך במשפט אחד קצר" }
+//    }, CancellationToken.None);
+
+//    Console.WriteLine("*****************************************************");
+//    Console.WriteLine($">>> תשובה ישירה מהאייג'נט:\n{reply}");
+//    Console.WriteLine("*****************************************************");
+//}
 app.Run();
