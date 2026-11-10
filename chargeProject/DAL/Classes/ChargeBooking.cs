@@ -25,6 +25,6 @@ namespace DAL.Classes
         public ChargingStations Station { get; set; }
         public Drivers Driver { get; set; }
         public UsersVehicles Vehicle { get; set; }
-        public ReviewsToCharge Review { get; set; } // אם יש ביקורת להזמנה
+        public ReviewsToCharge? Review { get; set; } // אם יש ביקורת להזמנה
     }
 }

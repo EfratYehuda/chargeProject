@@ -191,7 +191,7 @@ namespace DAL.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("CurrentDriverId")
+                    b.Property<int?>("CurrentDriverId")
                         .HasColumnType("int");
 
                     b.Property<int>("StationId")
@@ -227,7 +227,8 @@ namespace DAL.Migrations
 
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -365,8 +366,7 @@ namespace DAL.Migrations
                     b.HasOne("DAL.Classes.Drivers", "CurrentDriver")
                         .WithMany()
                         .HasForeignKey("CurrentDriverId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("DAL.Classes.ChargingStations", "Station")
                         .WithMany("Logs")
@@ -392,8 +392,7 @@ namespace DAL.Migrations
 
             modelBuilder.Entity("DAL.Classes.ChargeBooking", b =>
                 {
-                    b.Navigation("Review")
-                        .IsRequired();
+                    b.Navigation("Review");
                 });
 
             modelBuilder.Entity("DAL.Classes.ChargingStations", b =>
@@ -419,11 +418,9 @@ namespace DAL.Migrations
 
             modelBuilder.Entity("DAL.Classes.Users", b =>
                 {
-                    b.Navigation("DriverProfile")
-                        .IsRequired();
+                    b.Navigation("DriverProfile");
 
-                    b.Navigation("OwnerProfile")
-                        .IsRequired();
+                    b.Navigation("OwnerProfile");
                 });
 
             modelBuilder.Entity("DAL.Classes.UsersVehicles", b =>

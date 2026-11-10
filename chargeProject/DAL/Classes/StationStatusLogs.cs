@@ -16,8 +16,7 @@ namespace DAL.Classes
         [Required]
         public string Status { get; set; }
 
-        [Required]
-        public int CurrentDriverId { get; set; }
+        public int ? CurrentDriverId { get; set; }
 
         [Required]
         public DateTime UpdatedAt { get; set; } = DateTime.Now;

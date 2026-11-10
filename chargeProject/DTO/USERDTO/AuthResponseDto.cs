@@ -8,5 +8,7 @@ namespace DTO.USERDTO
     {
         public string Token { get; set; } = "";
         public DateTime ExpiresAt { get; set; }
+        public string RequestedRole { get; set; } = string.Empty;
+        public bool HasRequestedProfile { get; set; }
     }
 }

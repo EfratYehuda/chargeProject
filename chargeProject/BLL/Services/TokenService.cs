@@ -10,7 +10,8 @@ namespace MyApp.BLL.Services;
 
 public interface ITokenService
 {
-    AuthResponseDto CreateToken(Users user);
+    
+    AuthResponseDto CreateToken(Users user, string? role, int? profileId);
 }
 
 public class TokenService : ITokenService
@@ -18,8 +19,8 @@ public class TokenService : ITokenService
     private readonly IConfiguration _config;
 
     public TokenService(IConfiguration config) => _config = config;
-
-    public AuthResponseDto CreateToken(Users user)
+    
+    public AuthResponseDto CreateToken(Users user, string? role, int? profileId)
     {
         // המפתח הסודי מגיע ממשתנה הסביבה Jwt__Key, לא מהקוד
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
@@ -29,9 +30,14 @@ public class TokenService : ITokenService
         var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim(ClaimTypes.Email, user.Email),
-            new Claim(ClaimTypes.Role, user.Access)
+            new Claim(ClaimTypes.Email, user.Email)
+            
         };
+        if (role != null && profileId != null)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, role));
+            claims.Add(new Claim("profileId", profileId.Value.ToString()));
+        }
 
         var minutes = int.Parse(_config["Jwt:ExpiresMinutes"] ?? "60");
         var expires = DateTime.UtcNow.AddMinutes(minutes);
@@ -48,5 +54,7 @@ public class TokenService : ITokenService
             Token = new JwtSecurityTokenHandler().WriteToken(token),
             ExpiresAt = expires
         };
+
     }
+    
 }

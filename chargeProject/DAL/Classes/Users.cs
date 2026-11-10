@@ -14,7 +14,7 @@ namespace DAL.Classes
 
          public string Name { get; set; }
 
-        [Required]
+        [Required, StringLength(100)]
 
         public string Email { get; set; }
 
@@ -28,7 +28,7 @@ namespace DAL.Classes
         [Required]
         public string Access { get; set; }
 
-        public Drivers DriverProfile { get; set; }
-        public Owner OwnerProfile { get; set; }
+        public  Drivers ? DriverProfile { get; set; }
+        public Owner ? OwnerProfile { get; set; }
     }
 }

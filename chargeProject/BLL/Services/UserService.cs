@@ -44,18 +44,28 @@ namespace BLL.Services
             return true;   // הקונטרולר יחליט מה להחזיר ללקוח
         }
 
-        public async Task<AuthResponseDto>? LoginAsync(LoginRequestDto dto)
+        public async Task<AuthResponseDto?> LoginAsync(LoginRequestDto dto)
         {
             var email = dto.Email.Trim().ToLowerInvariant();
             var user = await _user.GetByEmailAsync(email);
-            if (user is null)
-                return null;
+            if (user is null) return null;
 
             var result = _hasher.VerifyHashedPassword(user, user.PasswordHash, dto.Password);
-            if (result == PasswordVerificationResult.Failed)
-                return null;
+            if (result == PasswordVerificationResult.Failed) return null;
 
-            return  _tokens.CreateToken(user);
+            // Ask the database which profile this user really has
+            int? profileId = dto.Role switch
+            {
+                UserRoles.Driver => user.DriverProfile?.Id,
+                UserRoles.Owner => user.OwnerProfile?.Id,
+                _ => null
+            };
+            bool hasRole = profileId != null;
+
+            var response = _tokens.CreateToken(user, hasRole ? dto.Role : null, profileId);
+            response.RequestedRole = dto.Role;
+            response.HasRequestedProfile = hasRole;
+            return response;
         }
 
 
