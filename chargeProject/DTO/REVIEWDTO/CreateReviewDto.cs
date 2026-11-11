@@ -9,7 +9,8 @@ namespace DTO.REVIEWDTO
     public class CreateReviewDto
     {
         [Required] public int ChargeBookingId { get; set; }
-        [Required] public int DriverId { get; set; }
+
+        // DriverId was removed: the server takes it from the token (driverId claim).
 
         [Range(1, 5)]
         public double Rating { get; set; }
@@ -17,5 +18,4 @@ namespace DTO.REVIEWDTO
         [Required(AllowEmptyStrings = false), StringLength(1000, MinimumLength = 1)]
         public string Comment { get; set; } = string.Empty;
     }
-
 }

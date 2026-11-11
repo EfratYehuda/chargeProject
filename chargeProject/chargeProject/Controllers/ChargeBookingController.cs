@@ -1,11 +1,19 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+﻿using BLL.Services;
+using chargeProject.Extensions;
+using DTO;
 using DTO.VEHICLESDTO;
-using BLL.Services;
-using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace chargeProject.Controllers
 {
+    // Security model for this controller:
+    //  1. [Authorize] on the class        -> you must be logged in (401 otherwise)
+    //  2. Policy "Driver"                  -> your token must contain a driverId claim (403 otherwise)
+    //  3. The service gets driverId FROM THE TOKEN and looks the booking up with it,
+    //     so a booking that is not yours is "not found" (404). The client never says who it is.
+    // Errors: no try-catch. Services throw NotFoundException / ConflictException / BusinessRuleException
+    // and GlobalExceptionHandler turns them into 404 / 409 / 400.
     [Route("api/[controller]")]
     [ApiController]
     [Authorize]
@@ -18,150 +26,71 @@ namespace chargeProject.Controllers
             _chargeBookingService = chargeBookingService;
         }
 
-        // 1. GET: api/ChargeBooking - שליפת כל ההזמנות
-        [AllowAnonymous]
+        // GET api/ChargeBooking - every booking of every driver: admin only
         [HttpGet]
+        [Authorize(Roles = UserRoles.Admin)]
         public async Task<IActionResult> GetAllBookings()
         {
-            try
-            {
-                var bookings = await _chargeBookingService.GetAllAsync();
-                return Ok(bookings);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Error: {ex.Message}");
-            }
+            return Ok(await _chargeBookingService.GetAllAsync());
         }
 
-        // 2. GET: api/ChargeBooking/5 - שליפת הזמנה לפי מזהה
-        [AllowAnonymous]
+        // GET api/ChargeBooking/my - the logged-in driver's bookings
+        [HttpGet("my")]
+        [Authorize(Policy = "Driver")]
+        public async Task<IActionResult> GetMyBookings()
+        {
+            return Ok(await _chargeBookingService.GetByDriverIdAsync(User.GetRequiredDriverId()));
+        }
+
+        // GET api/ChargeBooking/my-stations - bookings made at the logged-in owner's stations
+        [HttpGet("my-stations")]
+        [Authorize(Policy = "Owner")]
+        public async Task<IActionResult> GetBookingsAtMyStations()
+        {
+            return Ok(await _chargeBookingService.GetByOwnerIdAsync(User.GetRequiredOwnerId()));
+        }
+
+        // GET api/ChargeBooking/5 - a driver sees only his own booking; admin sees any
         [HttpGet("{id}")]
         public async Task<IActionResult> GetBookingById(int id)
         {
-            try
-            {
-                var booking = await _chargeBookingService.GetByIdAsync(id);
-                if (booking == null)
-                {
-                    return NotFound($"Booking with ID {id} was not found.");
-                }
-                return Ok(booking);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Error: {ex.Message}");
-            }
+            if (User.IsAdmin())
+                return Ok(await _chargeBookingService.GetByIdAsync(id));
+
+            return Ok(await _chargeBookingService.GetOwnedAsync(id, User.GetRequiredDriverId()));
         }
 
-        // 3. POST: api/ChargeBooking - יצירת שריון/הזמנה חדשה
+        // POST api/ChargeBooking - the driver comes from the token
         [HttpPost]
+        [Authorize(Policy = "Driver")]
         public async Task<IActionResult> CreateBooking([FromBody] CreateChargeBookingDto newBookingDto)
         {
-            if (newBookingDto == null)
-            {
-                return BadRequest("Booking data is empty.");
-            }
-
-            try
-            {
-                var createdBooking = await _chargeBookingService.AddAsync(newBookingDto);
-                return Ok(createdBooking);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Error: {ex.Message}");
-            }
+            return Ok(await _chargeBookingService.AddAsync(User.GetRequiredDriverId(), newBookingDto));
         }
 
-        // 4. PUT: api/ChargeBooking/5 - עדכון הזמנה קיימת (מאובטח IDOR)
+        // PUT api/ChargeBooking/5
         [HttpPut("{id}")]
+        [Authorize(Policy = "Driver")]
         public async Task<IActionResult> UpdateBooking(int id, [FromBody] CreateChargeBookingDto updatedBookingDto)
         {
-            if (updatedBookingDto == null)
-            {
-                return BadRequest("Booking data is invalid.");
-            }
-
-            try
-            {
-                var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int userId))
-                {
-                    return Unauthorized("User ID is missing in token.");
-                }
-
-                int? driverId = await _chargeBookingService.GetDriverIdByUserIdAsync(userId);
-                if (driverId == null) return Unauthorized("User is not a driver.");
-
-                var updatedBooking = await _chargeBookingService.UpdateAsync(id, driverId.Value, updatedBookingDto);
-                if (updatedBooking == null)
-                {
-                    return NotFound($"Booking with ID {id} was not found or does not belong to you.");
-                }
-                return Ok(updatedBooking);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Error: {ex.Message}");
-            }
+            return Ok(await _chargeBookingService.UpdateAsync(id, User.GetRequiredDriverId(), updatedBookingDto));
         }
 
-        // 5. PATCH: api/ChargeBooking/5/status - עדכון סטטוס בלבד (מאובטח IDOR)
+        // PATCH api/ChargeBooking/5/status?status=Confirmed
         [HttpPatch("{id}/status")]
+        [Authorize(Policy = "Driver")]
         public async Task<IActionResult> UpdateBookingStatus(int id, [FromQuery] string status)
         {
-            try
-            {
-                var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int userId))
-                {
-                    return Unauthorized("User ID is missing in token.");
-                }
-
-                int? driverId = await _chargeBookingService.GetDriverIdByUserIdAsync(userId);
-                if (driverId == null) return Unauthorized("User is not a driver.");
-
-                var updatedBooking = await _chargeBookingService.UpdateStatusAsync(id, driverId.Value, status);
-                if (updatedBooking == null)
-                {
-                    return NotFound($"Booking with ID {id} was not found or does not belong to you.");
-                }
-                return Ok(updatedBooking);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Error: {ex.Message}");
-            }
+            return Ok(await _chargeBookingService.UpdateStatusAsync(id, User.GetRequiredDriverId(), status));
         }
 
-        // 6. DELETE: api/ChargeBooking/5 - מחיקת הזמנה (מאובטח IDOR)
+        // DELETE api/ChargeBooking/5
         [HttpDelete("{id}")]
+        [Authorize(Policy = "Driver")]
         public async Task<IActionResult> DeleteBooking(int id)
         {
-            try
-            {
-                var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int userId))
-                {
-                    return Unauthorized("User ID is missing in token.");
-                }
-
-                int? driverId = await _chargeBookingService.GetDriverIdByUserIdAsync(userId);
-                if (driverId == null) return Unauthorized("User is not a driver.");
-
-                var success = await _chargeBookingService.DeleteAsync(id, driverId.Value);
-                if (!success)
-                {
-                    return NotFound($"Booking with ID {id} was not found or does not belong to you.");
-                }
-
-                return Ok($"Booking with ID {id} was deleted successfully.");
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Error: {ex.Message}");
-            }
+            await _chargeBookingService.DeleteAsync(id, User.GetRequiredDriverId());
+            return Ok($"Booking with ID {id} was deleted successfully.");
         }
     }
 }

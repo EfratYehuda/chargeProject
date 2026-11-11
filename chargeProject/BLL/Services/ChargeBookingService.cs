@@ -1,10 +1,13 @@
 ﻿using AutoMapper;
+using BLL.Exceptions;
 using DAL.Classes;
 using DAL.Repositories.IRepositories;
 using DTO;
 using DTO.VEHICLESDTO;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace BLL.Services
@@ -13,6 +16,15 @@ namespace BLL.Services
     {
         private static readonly string[] ActiveStatuses =
             { BookingStatuses.Held, BookingStatuses.Confirmed, BookingStatuses.Charging };
+
+        // Which status may follow which. Anything that is not listed here is forbidden
+        // (so Completed / Cancelled / Expired are final, and Held cannot jump straight to Completed).
+        private static readonly Dictionary<string, string[]> AllowedTransitions = new()
+        {
+            [BookingStatuses.Held] = new[] { BookingStatuses.Confirmed, BookingStatuses.Cancelled },
+            [BookingStatuses.Confirmed] = new[] { BookingStatuses.Charging, BookingStatuses.Cancelled },
+            [BookingStatuses.Charging] = new[] { BookingStatuses.Completed }
+        };
 
         private readonly InterfaceChargeBooking _bookingRepo;
         private readonly IMapper _mapper;
@@ -23,16 +35,23 @@ namespace BLL.Services
             _mapper = mapper;
         }
 
-        public async Task<ChargeBookingDto?> GetByIdAsync(int id)
-        {
-            var entity = await _bookingRepo.GetByIdAsync(id);
-            return _mapper.Map<ChargeBookingDto>(entity);
-        }
-
         public async Task<List<ChargeBookingDto>> GetAllAsync()
         {
             var entities = await _bookingRepo.GetAllAsync();
             return _mapper.Map<List<ChargeBookingDto>>(entities);
+        }
+
+        public async Task<ChargeBookingDto> GetByIdAsync(int id)
+        {
+            var entity = await _bookingRepo.GetByIdAsync(id)
+                ?? throw new NotFoundException("ההזמנה לא נמצאה");
+            return _mapper.Map<ChargeBookingDto>(entity);
+        }
+
+        public async Task<ChargeBookingDto> GetOwnedAsync(int id, int driverId)
+        {
+            var entity = await GetOwnedEntityAsync(id, driverId);
+            return _mapper.Map<ChargeBookingDto>(entity);
         }
 
         public async Task<List<ChargeBookingDto>> GetByDriverIdAsync(int driverId)
@@ -53,34 +72,44 @@ namespace BLL.Services
             return _mapper.Map<List<ChargeBookingDto>>(entities);
         }
 
-        public async Task<ChargeBookingDto> AddAsync(CreateChargeBookingDto dto)
+        public async Task<ChargeBookingDto> AddAsync(int driverId, CreateChargeBookingDto dto)
         {
-            var station = await _bookingRepo.GetStationByIdAsync(dto.StationId)
-                ?? throw new KeyNotFoundException($"עמדה {dto.StationId} לא נמצאה");
-            if (!station.IsActive)
-                throw new InvalidOperationException("העמדה אינה פעילה");
+            ValidateBattery(dto);
 
-            var vehicle = await _bookingRepo.GetVehicleByIdAsync(dto.VehicleId)
-                ?? throw new KeyNotFoundException($"רכב {dto.VehicleId} לא נמצא");
-            if (vehicle.DriverId != dto.DriverId)
-                throw new InvalidOperationException("הרכב אינו שייך לנהג");
+            var station = await _bookingRepo.GetStationByIdAsync(dto.StationId)
+                ?? throw new NotFoundException("העמדה לא נמצאה");
+            if (!station.IsActive)
+                throw new BusinessRuleException("העמדה אינה פעילה");
+
+            // A vehicle that is not yours looks exactly like a vehicle that does not exist.
+            var vehicle = await _bookingRepo.GetVehicleByIdAsync(dto.VehicleId);
+            if (vehicle == null || vehicle.DriverId != driverId)
+                throw new NotFoundException("הרכב לא נמצא");
 
             if (await _bookingRepo.HasActiveBookingAsync(dto.VehicleId, ActiveStatuses))
-                throw new InvalidOperationException("לרכב כבר קיימת הזמנה פעילה");
+                throw new ConflictException("לרכב כבר קיימת הזמנה פעילה");
 
             var entity = _mapper.Map<ChargeBooking>(dto);
+            entity.DriverId = driverId;   // from the token, not from the client
             entity.Status = BookingStatuses.Held;
             entity.CreatedAt = DateTime.Now;
 
             var savedEntity = await _bookingRepo.AddAsync(entity);
-            return _mapper.Map<ChargeBookingDto>(savedEntity);
+
+            // Re-read so the station name/address are loaded for the DTO.
+            var fullEntity = await _bookingRepo.GetByIdAsync(savedEntity.Id);
+            return _mapper.Map<ChargeBookingDto>(fullEntity ?? savedEntity);
         }
 
-        // --- אבטחת IDOR: עדכון הזמנה רק אם היא שייכת לנהג ---
-        public async Task<ChargeBookingDto?> UpdateAsync(int id, int driverId, CreateChargeBookingDto dto)
+        // IDOR protection: the booking is loaded only if it belongs to this driver.
+        public async Task<ChargeBookingDto> UpdateAsync(int id, int driverId, CreateChargeBookingDto dto)
         {
-            var entity = await _bookingRepo.GetOwnedAsync(id, driverId);
-            if (entity == null) return null;
+            ValidateBattery(dto);
+
+            var entity = await GetOwnedEntityAsync(id, driverId);
+
+            if (entity.Status != BookingStatuses.Held && entity.Status != BookingStatuses.Confirmed)
+                throw new ConflictException("ניתן לעדכן הזמנה רק לפני תחילת הטעינה");
 
             entity.CurrentBatteryPercent = dto.CurrentBatteryPercent;
             entity.TargetBatteryPercent = dto.TargetBatteryPercent;
@@ -90,15 +119,30 @@ namespace BLL.Services
             return _mapper.Map<ChargeBookingDto>(updatedEntity);
         }
 
-        // --- אבטחת IDOR: עדכון סטטוס רק אם ההזמנה שייכת לנהג ---
-        public async Task<ChargeBookingDto?> UpdateStatusAsync(int id, int driverId, string status)
+        public async Task<ChargeBookingDto> UpdateStatusAsync(int id, int driverId, string status)
         {
-            var entity = await _bookingRepo.GetOwnedAsync(id, driverId);
-            if (entity == null) return null;
+            if (string.IsNullOrWhiteSpace(status) || !Regex.IsMatch(status, BookingStatuses.Pattern))
+                throw new BusinessRuleException("סטטוס לא חוקי");
+
+            var entity = await GetOwnedEntityAsync(id, driverId);
+
+            if (!AllowedTransitions.TryGetValue(entity.Status, out var allowed) || !allowed.Contains(status))
+                throw new ConflictException($"לא ניתן לעבור מסטטוס {entity.Status} לסטטוס {status}");
+
+            // A hold that is older than HoldMinutes cannot be confirmed any more.
+            if (entity.Status == BookingStatuses.Held && status == BookingStatuses.Confirmed
+                && entity.CreatedAt <= DateTime.Now.AddMinutes(-BookingRules.HoldMinutes))
+                throw new ConflictException("השריון פג תוקף");
 
             entity.Status = status;
             var updatedEntity = await _bookingRepo.UpdateAsync(entity);
             return _mapper.Map<ChargeBookingDto>(updatedEntity);
+        }
+
+        public async Task DeleteAsync(int id, int driverId)
+        {
+            await GetOwnedEntityAsync(id, driverId);   // throws NotFoundException if it is not his
+            await _bookingRepo.DeleteAsync(id);
         }
 
         public async Task<int> ExpireStaleHoldsAsync()
@@ -115,18 +159,14 @@ namespace BLL.Services
             return staleBookings.Count;
         }
 
-        // --- אבטחת IDOR: מחיקת הזמנה רק אם היא שייכת לנהג ---
-        public async Task<bool> DeleteAsync(int id, int driverId)
-        {
-            var entity = await _bookingRepo.GetOwnedAsync(id, driverId);
-            if (entity == null) return false;
+        private async Task<ChargeBooking> GetOwnedEntityAsync(int id, int driverId) =>
+            await _bookingRepo.GetOwnedAsync(id, driverId)
+                ?? throw new NotFoundException("ההזמנה לא נמצאה");
 
-            return await _bookingRepo.DeleteAsync(id);
-        }
-
-        public async Task<int?> GetDriverIdByUserIdAsync(int userId)
+        private static void ValidateBattery(CreateChargeBookingDto dto)
         {
-            return await _bookingRepo.GetDriverIdByUserIdAsync(userId);
+            if (dto.TargetBatteryPercent <= dto.CurrentBatteryPercent)
+                throw new BusinessRuleException("אחוז הסוללה המבוקש חייב להיות גבוה מהנוכחי");
         }
     }
 }

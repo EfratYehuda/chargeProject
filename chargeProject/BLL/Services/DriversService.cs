@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using BLL.Exceptions;
 using DAL.Classes;
 using DAL.Repositories.IRepositories;
 using DTO.USERDTO;
@@ -19,9 +20,10 @@ namespace BLL.Services
             _mapper = mapper;
         }
 
-        public async Task<DriverDto?> GetByIdAsync(int id)
+        public async Task<DriverDto> GetByIdAsync(int id)
         {
-            var entity = await _driverRepo.GetByIdAsync(id);
+            var entity = await _driverRepo.GetByIdAsync(id)
+                ?? throw new NotFoundException("פרופיל הנהג לא נמצא");
             return _mapper.Map<DriverDto>(entity);
         }
 
@@ -31,31 +33,33 @@ namespace BLL.Services
             return _mapper.Map<List<DriverDto>>(entities);
         }
 
-        public async Task<DriverDto?> GetByUserIdAsync(int userId)
+        public async Task<DriverDto> GetByUserIdAsync(int userId)
         {
-            var entity = await _driverRepo.GetByUserIdAsync(userId);
+            var entity = await _driverRepo.GetByUserIdAsync(userId)
+                ?? throw new NotFoundException("פרופיל הנהג לא נמצא");
             return _mapper.Map<DriverDto>(entity);
         }
 
         public async Task<DriverDto> AddAsync(CreateDriverDto dto)
         {
             if (!await _driverRepo.UserExistsAsync(dto.UserId))
-                throw new KeyNotFoundException($"משתמש {dto.UserId} לא נמצא");
+                throw new NotFoundException("המשתמש לא נמצא");
 
             if (await _driverRepo.DriverExistsForUserAsync(dto.UserId))
-                throw new InvalidOperationException("למשתמש כבר קיים פרופיל נהג");
+                throw new ConflictException("למשתמש כבר קיים פרופיל נהג");
 
             var entity = _mapper.Map<Drivers>(dto);
             var savedEntity = await _driverRepo.AddAsync(entity);
 
-            // שולפים מחדש מה-DB כדי לקבל את פרטי ה-User שהצטרפו אליו עבור ה-DTO
+            // Re-read so the User details are loaded for the DTO.
             var fullEntity = await _driverRepo.GetByIdAsync(savedEntity.Id);
             return _mapper.Map<DriverDto>(fullEntity!);
         }
 
-        public async Task<bool> DeleteAsync(int id)
+        public async Task DeleteAsync(int id)
         {
-            return await _driverRepo.DeleteAsync(id);
+            if (!await _driverRepo.DeleteAsync(id))
+                throw new NotFoundException("פרופיל הנהג לא נמצא");
         }
     }
 }

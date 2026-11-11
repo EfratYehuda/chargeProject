@@ -34,6 +34,7 @@ namespace DTO
     /// <summary>תפקידי משתמש</summary>
     public static class UserRoles
     {
+        public const string User = "User";
         public const string Driver = "Driver";
         public const string Owner = "Owner";
         public const string Admin = "Admin";

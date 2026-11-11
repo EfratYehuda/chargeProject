@@ -1,11 +1,17 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+﻿using BLL.Exceptions;
 using BLL.Services;
+using chargeProject.Extensions;
+using DTO;
 using DTO.USERDTO;
-using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace chargeProject.Controllers
 {
+    // A driver profile holds name, email and phone, so it is private:
+    // you see your own profile, an admin sees all. Someone else's profile is simply "not found".
+    // Profiles are created through POST api/users/become-driver (which also returns the new token),
+    // so the old "create a driver for any UserId" endpoint is now admin only.
     [Route("api/[controller]")]
     [ApiController]
     [Authorize]
@@ -18,70 +24,46 @@ namespace chargeProject.Controllers
             _driversService = driversService;
         }
 
-        [AllowAnonymous]
         [HttpGet]
+        [Authorize(Roles = UserRoles.Admin)]
         public async Task<IActionResult> GetAllDrivers()
         {
-            try { return Ok(await _driversService.GetAllAsync()); }
-            catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
+            return Ok(await _driversService.GetAllAsync());
         }
 
-        [AllowAnonymous]
         [HttpGet("{id}")]
         public async Task<IActionResult> GetDriverById(int id)
         {
-            try
-            {
-                var driver = await _driversService.GetByIdAsync(id);
-                if (driver == null) return NotFound($"Driver with ID {id} not found.");
-                return Ok(driver);
-            }
-            catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
+            if (!User.IsAdmin() && User.GetDriverId() != id)
+                throw new NotFoundException("פרופיל הנהג לא נמצא");
+
+            return Ok(await _driversService.GetByIdAsync(id));
         }
 
-        [AllowAnonymous]
         [HttpGet("user/{userId}")]
         public async Task<IActionResult> GetDriverByUserId(int userId)
         {
-            try
-            {
-                var driver = await _driversService.GetByUserIdAsync(userId);
-                if (driver == null) return NotFound($"Driver with User ID {userId} not found.");
-                return Ok(driver);
-            }
-            catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
+            if (!User.IsAdmin() && User.GetUserId() != userId)
+                throw new NotFoundException("פרופיל הנהג לא נמצא");
+
+            return Ok(await _driversService.GetByUserIdAsync(userId));
         }
 
         [HttpPost]
+        [Authorize(Roles = UserRoles.Admin)]
         public async Task<IActionResult> CreateDriver([FromBody] CreateDriverDto dto)
         {
-            try { return Ok(await _driversService.AddAsync(dto)); }
-            catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
+            return Ok(await _driversService.AddAsync(dto));
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteDriver(int id)
         {
-            try
-            {
-                var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int userId))
-                {
-                    return Unauthorized("User ID is missing in token.");
-                }
+            if (!User.IsAdmin() && User.GetDriverId() != id)
+                throw new NotFoundException("פרופיל הנהג לא נמצא");
 
-                // וידוא IDOR: הנהג יכול למחוק רק את הפרופיל ששייך אליו
-                var driverByUser = await _driversService.GetByUserIdAsync(userId);
-                if (driverByUser == null || driverByUser.Id != id)
-                {
-                    return Forbid();
-                }
-
-                var success = await _driversService.DeleteAsync(id);
-                if (!success) return NotFound($"Driver with ID {id} not found.");
-                return Ok($"Driver with ID {id} deleted successfully.");
-            }
-            catch (Exception ex) { return StatusCode(500, $"Error: {ex.Message}"); }
+            await _driversService.DeleteAsync(id);
+            return Ok($"Driver with ID {id} deleted successfully.");
         }
     }
 }

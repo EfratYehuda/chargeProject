@@ -1,7 +1,8 @@
 ﻿using AutoMapper;
+using BLL.Exceptions;
 using DAL.Classes;
 using DAL.Repositories.IRepositories;
-using DTO; // עבור BookingStatuses
+using DTO;
 using DTO.REVIEWDTO;
 using System;
 using System.Collections.Generic;
@@ -20,9 +21,10 @@ namespace BLL.Services
             _mapper = mapper;
         }
 
-        public async Task<ReviewDto?> GetByIdAsync(int id)
+        public async Task<ReviewDto> GetByIdAsync(int id)
         {
-            var entity = await _reviewRepo.GetByIdAsync(id);
+            var entity = await _reviewRepo.GetByIdAsync(id)
+                ?? throw new NotFoundException("הביקורת לא נמצאה");
             return _mapper.Map<ReviewDto>(entity);
         }
 
@@ -53,7 +55,7 @@ namespace BLL.Services
         public async Task<ReviewDto?> GetByBookingIdAsync(int bookingId)
         {
             var entity = await _reviewRepo.GetByBookingIdAsync(bookingId);
-            return _mapper.Map<ReviewDto>(entity);
+            return entity == null ? null : _mapper.Map<ReviewDto>(entity);
         }
 
         public async Task<double?> GetStationAverageRatingAsync(int stationId)
@@ -61,21 +63,21 @@ namespace BLL.Services
             return await _reviewRepo.GetStationAverageRatingAsync(stationId);
         }
 
-        public async Task<ReviewDto> AddAsync(CreateReviewDto dto)
+        public async Task<ReviewDto> AddAsync(int driverId, CreateReviewDto dto)
         {
-            var booking = await _reviewRepo.GetBookingByIdAsync(dto.ChargeBookingId)
-                ?? throw new KeyNotFoundException($"הזמנה {dto.ChargeBookingId} לא נמצאה");
-
-            if (booking.DriverId != dto.DriverId)
-                throw new InvalidOperationException("ההזמנה אינה שייכת לנהג");
+            // A booking that is not yours looks exactly like a booking that does not exist.
+            var booking = await _reviewRepo.GetBookingByIdAsync(dto.ChargeBookingId);
+            if (booking == null || booking.DriverId != driverId)
+                throw new NotFoundException("ההזמנה לא נמצאה");
 
             if (booking.Status != BookingStatuses.Completed)
-                throw new InvalidOperationException("ניתן לדרג רק טעינה שהסתיימה");
+                throw new BusinessRuleException("ניתן לדרג רק טעינה שהסתיימה");
 
             if (await _reviewRepo.ReviewExistsForBookingAsync(dto.ChargeBookingId))
-                throw new InvalidOperationException("כבר נכתבה ביקורת להזמנה זו");
+                throw new ConflictException("כבר נכתבה ביקורת להזמנה זו");
 
             var entity = _mapper.Map<ReviewsToCharge>(dto);
+            entity.DriverId = driverId;   // from the token, not from the client
             entity.CreatedAt = DateTime.Now;
 
             var savedEntity = await _reviewRepo.AddAsync(entity);
@@ -84,18 +86,13 @@ namespace BLL.Services
             return _mapper.Map<ReviewDto>(fullEntity!);
         }
 
-        // --- אבטחת IDOR: מחיקת ביקורת רק אם היא שייכת לנהג ---
-        public async Task<bool> DeleteAsync(int id, int driverId)
+        // IDOR protection: only the driver who wrote the review can delete it.
+        public async Task DeleteAsync(int id, int driverId)
         {
-            var entity = await _reviewRepo.GetOwnedAsync(id, driverId);
-            if (entity == null) return false;
+            var entity = await _reviewRepo.GetOwnedAsync(id, driverId)
+                ?? throw new NotFoundException("הביקורת לא נמצאה");
 
-            return await _reviewRepo.DeleteAsync(id);
-        }
-
-        public async Task<int?> GetDriverIdByUserIdAsync(int userId)
-        {
-            return await _reviewRepo.GetDriverIdByUserIdAsync(userId);
+            await _reviewRepo.DeleteAsync(entity.Id);
         }
     }
 }

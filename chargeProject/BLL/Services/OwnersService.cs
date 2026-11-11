@@ -1,7 +1,8 @@
 ﻿using AutoMapper;
+using BLL.Exceptions;
 using DAL.Classes;
 using DAL.Repositories.IRepositories;
-using DTO; // עבור StationStatuses
+using DTO;
 using DTO.REVIEWDTO;
 using DTO.STATIONDTO;
 using DTO.USERDTO;
@@ -23,9 +24,10 @@ namespace BLL.Services
             _mapper = mapper;
         }
 
-        public async Task<OwnerDto?> GetByIdAsync(int id)
+        public async Task<OwnerDto> GetByIdAsync(int id)
         {
-            var entity = await _ownerRepo.GetByIdAsync(id);
+            var entity = await _ownerRepo.GetByIdAsync(id)
+                ?? throw new NotFoundException("פרופיל בעל העמדות לא נמצא");
             return _mapper.Map<OwnerDto>(entity);
         }
 
@@ -35,19 +37,20 @@ namespace BLL.Services
             return _mapper.Map<List<OwnerDto>>(entities);
         }
 
-        public async Task<OwnerDto?> GetByUserIdAsync(int userId)
+        public async Task<OwnerDto> GetByUserIdAsync(int userId)
         {
-            var entity = await _ownerRepo.GetByUserIdAsync(userId);
+            var entity = await _ownerRepo.GetByUserIdAsync(userId)
+                ?? throw new NotFoundException("פרופיל בעל העמדות לא נמצא");
             return _mapper.Map<OwnerDto>(entity);
         }
 
         public async Task<OwnerDto> AddAsync(CreateOwnerDto dto)
         {
             if (!await _ownerRepo.UserExistsAsync(dto.UserId))
-                throw new KeyNotFoundException($"משתמש {dto.UserId} לא נמצא");
+                throw new NotFoundException("המשתמש לא נמצא");
 
             if (await _ownerRepo.OwnerExistsForUserAsync(dto.UserId))
-                throw new InvalidOperationException("למשתמש כבר קיים פרופיל בעל עמדות");
+                throw new ConflictException("למשתמש כבר קיים פרופיל בעל עמדות");
 
             var entity = _mapper.Map<Owner>(dto);
             var savedEntity = await _ownerRepo.AddAsync(entity);
@@ -56,27 +59,24 @@ namespace BLL.Services
             return _mapper.Map<OwnerDto>(fullEntity!);
         }
 
-        public async Task<bool> DeleteAsync(int id)
+        public async Task DeleteAsync(int id)
         {
-            return await _ownerRepo.DeleteAsync(id);
+            if (!await _ownerRepo.DeleteAsync(id))
+                throw new NotFoundException("פרופיל בעל העמדות לא נמצא");
         }
 
-        public async Task<OwnerDashboardDto?> GetDashboardAsync(int ownerId)
+        public async Task<OwnerDashboardDto> GetDashboardAsync(int ownerId)
         {
             if (!await _ownerRepo.ExistsAsync(ownerId))
-                return null;
+                throw new NotFoundException("פרופיל בעל העמדות לא נמצא");
 
-            // משיכת כל הנתונים מה-DAL
             var stationsEntities = await _ownerRepo.GetStationsByOwnerIdAsync(ownerId);
             var recentReviewsEntities = await _ownerRepo.GetRecentReviewsByOwnerIdAsync(ownerId, 10);
-
-            // הנחה ש-StationStatuses.Faulty מוגדר ב-DTO, אחרת צריך להחליף במחרוזת המתאימה
             var recentFaultsEntities = await _ownerRepo.GetRecentFaultsByOwnerIdAsync(ownerId, 10, StationStatuses.Faulty);
 
             var totalBookings = await _ownerRepo.GetTotalBookingsByOwnerIdAsync(ownerId);
             var avgRating = await _ownerRepo.GetAverageRatingByOwnerIdAsync(ownerId);
 
-            // מיפוי הנתונים ל-DTOs
             var stations = _mapper.Map<List<StationDto>>(stationsEntities);
             var recentReviews = _mapper.Map<List<ReviewDto>>(recentReviewsEntities);
             var recentFaults = _mapper.Map<List<StationStatusLogDto>>(recentFaultsEntities);

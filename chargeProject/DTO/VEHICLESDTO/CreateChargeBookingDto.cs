@@ -8,8 +8,9 @@ namespace DTO.VEHICLESDTO
     public class CreateChargeBookingDto
     {
         [Required] public int StationId { get; set; }
-        [Required] public int DriverId { get; set; }
         [Required] public int VehicleId { get; set; }
+
+        // DriverId was removed: the server takes it from the token (driverId claim).
 
         [Range(0, 100)]
         public double CurrentBatteryPercent { get; set; }

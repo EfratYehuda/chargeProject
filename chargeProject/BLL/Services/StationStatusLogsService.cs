@@ -1,7 +1,8 @@
 ﻿using AutoMapper;
+using BLL.Exceptions;
 using DAL.Classes;
 using DAL.Repositories.IRepositories;
-using DTO; // מניח ש-StationStatuses נמצא שם
+using DTO;
 using DTO.STATIONDTO;
 using System;
 using System.Collections.Generic;
@@ -20,9 +21,10 @@ namespace BLL.Services
             _mapper = mapper;
         }
 
-        public async Task<StationStatusLogDto?> GetByIdAsync(int id)
+        public async Task<StationStatusLogDto> GetByIdAsync(int id)
         {
-            var entity = await _logsRepo.GetByIdAsync(id);
+            var entity = await _logsRepo.GetByIdAsync(id)
+                ?? throw new NotFoundException("רשומת הסטטוס לא נמצאה");
             return _mapper.Map<StationStatusLogDto>(entity);
         }
 
@@ -38,40 +40,44 @@ namespace BLL.Services
             return _mapper.Map<List<StationStatusLogDto>>(entities);
         }
 
-        public async Task<StationStatusLogDto?> GetLatestByStationIdAsync(int stationId)
+        public async Task<StationStatusLogDto> GetLatestByStationIdAsync(int stationId)
         {
-            var entity = await _logsRepo.GetLatestByStationIdAsync(stationId);
+            var entity = await _logsRepo.GetLatestByStationIdAsync(stationId)
+                ?? throw new NotFoundException("לא נמצאה רשומת סטטוס לעמדה זו");
             return _mapper.Map<StationStatusLogDto>(entity);
         }
 
         public async Task<List<StationStatusLogDto>> GetFaultReportsByOwnerIdAsync(int ownerId, int take = 20)
         {
-            // שולחים את סטטוס התקלה ל-DAL כדי למנוע תלות ב-DTO בשכבת הנתונים
+            // The faulty status is passed to the DAL so the DAL does not depend on the DTO project.
             var entities = await _logsRepo.GetFaultReportsByOwnerIdAsync(ownerId, StationStatuses.Faulty, take);
             return _mapper.Map<List<StationStatusLogDto>>(entities);
         }
 
+        // NOTE: no controller calls this yet. When you add a POST endpoint, take the reporting
+        // driver from the token (User.GetRequiredDriverId()) instead of trusting dto.CurrentDriverId.
         public async Task<StationStatusLogDto> AddAsync(CreateStationStatusLogDto dto)
         {
             if (!await _logsRepo.StationExistsAsync(dto.StationId))
-                throw new KeyNotFoundException($"עמדה {dto.StationId} לא נמצאה");
+                throw new NotFoundException("העמדה לא נמצאה");
 
             if (dto.CurrentDriverId.HasValue && !await _logsRepo.DriverExistsAsync(dto.CurrentDriverId.Value))
-                throw new KeyNotFoundException($"נהג {dto.CurrentDriverId} לא נמצא");
+                throw new NotFoundException("הנהג לא נמצא");
 
             var entity = _mapper.Map<StationStatusLogs>(dto);
             entity.UpdatedAt = DateTime.Now;
 
             var savedEntity = await _logsRepo.AddAsync(entity);
 
-            // שולפים מחדש כדי לקבל את האובייקטים המקושרים (שם הנהג, שם העמדה) עבור ה-DTO
+            // Re-read so the linked objects (driver name, station name) are loaded for the DTO.
             var fullEntity = await _logsRepo.GetByIdAsync(savedEntity.Id);
             return _mapper.Map<StationStatusLogDto>(fullEntity!);
         }
 
-        public async Task<bool> DeleteAsync(int id)
+        public async Task DeleteAsync(int id)
         {
-            return await _logsRepo.DeleteAsync(id);
+            if (!await _logsRepo.DeleteAsync(id))
+                throw new NotFoundException("רשומת הסטטוס לא נמצאה");
         }
     }
 }

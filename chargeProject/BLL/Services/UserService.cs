@@ -1,22 +1,24 @@
 ﻿using AutoMapper;
+using BLL.Exceptions;
 using DAL.Classes;
 using DAL.Repositories.IRepositories;
-using DTO; // עבור UserRoles
+using DTO; // UserRoles
 using DTO.USERDTO;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using MyApp.BLL.Services;
-
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace BLL.Services
 {
-    
-
     public class UserService : IUserService
     {
         private readonly InterfaceUser _user;
         private readonly IMapper _mapper;
         private readonly ITokenService _tokens;
-        private readonly IPasswordHasher<Users> _hasher; 
+        private readonly IPasswordHasher<Users> _hasher;
 
         public UserService(InterfaceUser userRepo, IMapper mapper, IPasswordHasher<Users> hasher, ITokenService tokens)
         {
@@ -25,25 +27,8 @@ namespace BLL.Services
             _mapper = mapper;
             _hasher = hasher;
         }
-        public async Task<bool> Register(RegisterRequestDto dto)
-        {
-            var email = dto.Email.Trim().ToLowerInvariant();
-            if (await _user.EmailExistsAsync(email))
-                return false;
 
-            // התפקיד נקבע בשרת, לא מגיע מהלקוח
-            var user = new Users {
-                Email = email,
-                Name = dto.Name,
-                Phone = dto.Phone,
-                Access = "User"
-            };
-            user.PasswordHash = _hasher.HashPassword(user, dto.Password);
-
-            await _user.AddAsync(user);
-            return true;   // הקונטרולר יחליט מה להחזיר ללקוח
-        }
-
+        // Wrong email and wrong password both return null, so the client cannot tell which one was wrong.
         public async Task<AuthResponseDto?> LoginAsync(LoginRequestDto dto)
         {
             var email = dto.Email.Trim().ToLowerInvariant();
@@ -54,24 +39,23 @@ namespace BLL.Services
             if (result == PasswordVerificationResult.Failed) return null;
 
             // Ask the database which profile this user really has
-            int? profileId = dto.Role switch
+            bool hasRole = dto.Role switch
             {
-                UserRoles.Driver => user.DriverProfile?.Id,
-                UserRoles.Owner => user.OwnerProfile?.Id,
-                _ => null
+                UserRoles.Driver => user.DriverProfile != null,
+                UserRoles.Owner => user.OwnerProfile != null,
+                _ => false
             };
-            bool hasRole = profileId != null;
 
-            var response = _tokens.CreateToken(user, hasRole ? dto.Role : null, profileId);
+            var response = _tokens.CreateToken(user);
             response.RequestedRole = dto.Role;
             response.HasRequestedProfile = hasRole;
             return response;
         }
 
-
-        public async Task<UserProfileDto?> GetByIdAsync(int id)
+        public async Task<UserProfileDto> GetByIdAsync(int id)
         {
-            var entity = await _user.GetByIdAsync(id);
+            var entity = await _user.GetByIdAsync(id)
+                ?? throw new NotFoundException("המשתמש לא נמצא");
             return _mapper.Map<UserProfileDto>(entity);
         }
 
@@ -84,7 +68,7 @@ namespace BLL.Services
         public async Task<UserProfileDto?> GetByEmailAsync(string email)
         {
             var entity = await _user.GetByEmailAsync(email);
-            return _mapper.Map<UserProfileDto>(entity);
+            return entity == null ? null : _mapper.Map<UserProfileDto>(entity);
         }
 
         public async Task<bool> EmailExistsAsync(string email)
@@ -92,14 +76,17 @@ namespace BLL.Services
             return await _user.EmailExistsAsync(email);
         }
 
+        // Registration
         public async Task<UserProfileDto> AddAsync(RegisterRequestDto dto)
         {
+            dto.Email = dto.Email.Trim().ToLowerInvariant();   // same normalization as LoginAsync
             if (await _user.EmailExistsAsync(dto.Email))
-                throw new InvalidOperationException("כתובת האימייל כבר קיימת במערכת");
+                throw new ConflictException("כתובת האימייל כבר קיימת במערכת");
 
             var entity = _mapper.Map<Users>(dto);
+            entity.Access = UserRoles.User;   // nobody can register as Admin, whatever the client sends
             entity.PasswordHash = _hasher.HashPassword(entity, dto.Password);
-            // הלוגיקה העסקית של יצירת הפרופיל מתבצעת כאן
+
             if (dto.Role == UserRoles.Driver)
                 entity.DriverProfile = new Drivers();
             else if (dto.Role == UserRoles.Owner)
@@ -107,25 +94,59 @@ namespace BLL.Services
 
             var savedEntity = await _user.AddAsync(entity);
 
-            // שולפים מחדש עם כל ה-Includes
+            // Re-read with all the Includes
             var fullEntity = await _user.GetByIdAsync(savedEntity.Id);
             return _mapper.Map<UserProfileDto>(fullEntity!);
         }
 
-        public async Task<UserProfileDto?> UpdateAsync(int id, UpdateUserProfileDto dto)
+        public async Task<UserProfileDto> UpdateAsync(int id, UpdateUserProfileDto dto)
         {
-            var entity = await _user.GetByIdAsync(id);
-            if (entity == null) return null;
+            var entity = await _user.GetByIdAsync(id)
+                ?? throw new NotFoundException("המשתמש לא נמצא");
 
-            _mapper.Map(dto, entity);
+            _mapper.Map(dto, entity);   // UpdateUserProfileDto holds only Name and Phone, so nothing else can change
             var updatedEntity = await _user.UpdateAsync(entity);
 
             return _mapper.Map<UserProfileDto>(updatedEntity);
         }
 
-        public async Task<bool> DeleteAsync(int id)
+        public async Task DeleteAsync(int id)
         {
-            return await _user.DeleteAsync(id);
+            if (!await _user.DeleteAsync(id))
+                throw new NotFoundException("המשתמש לא נמצא");
+        }
+
+        // Creates the profile (if it does not exist yet) and returns a NEW token that contains the new profile id.
+        public Task<AuthResponseDto> BecomeOwnerAsync(int userId) =>
+            EnsureProfileAndIssueTokenAsync(userId, u => u.OwnerProfile != null, u => u.OwnerProfile = new Owner());
+
+        public Task<AuthResponseDto> BecomeDriverAsync(int userId) =>
+            EnsureProfileAndIssueTokenAsync(userId, u => u.DriverProfile != null, u => u.DriverProfile = new Drivers());
+
+        private async Task<AuthResponseDto> EnsureProfileAndIssueTokenAsync(
+            int userId, Func<Users, bool> hasProfile, Action<Users> addProfile)
+        {
+            var user = await _user.GetByIdAsync(userId)
+                ?? throw new NotFoundException("המשתמש לא נמצא");
+
+            if (!hasProfile(user))
+            {
+                addProfile(user);
+                try
+                {
+                    await _user.UpdateAsync(user);
+                }
+                catch (DbUpdateException)
+                {
+                    // Another request (for example a double click) may have created it first. Re-read below.
+                }
+
+                user = await _user.GetByIdAsync(userId);
+                if (user == null || !hasProfile(user))
+                    throw new ConflictException("Could not create the profile. Please try again.");
+            }
+
+            return _tokens.CreateToken(user);
         }
     }
 }

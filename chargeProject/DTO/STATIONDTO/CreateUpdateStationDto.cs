@@ -8,8 +8,7 @@ namespace DTO.STATIONDTO
     /// <summary>יצירה / עדכון עמדה (בעל עמדה)</summary>
     public class CreateUpdateStationDto
     {
-        [Required]
-        public int OwnerId { get; set; }
+        // OwnerId was removed: the server takes it from the token (ownerId claim).
 
         [Required, StringLength(100, MinimumLength = 2)]
         public string Name { get; set; } = string.Empty;

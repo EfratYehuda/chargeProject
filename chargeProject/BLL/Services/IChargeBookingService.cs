@@ -6,21 +6,20 @@ namespace BLL.Services
 {
     public interface IChargeBookingService
     {
-        Task<ChargeBookingDto?> GetByIdAsync(int id);
-        Task<List<ChargeBookingDto>> GetAllAsync();
+        // Reads
+        Task<List<ChargeBookingDto>> GetAllAsync();                          // admin only (enforced in the controller)
+        Task<ChargeBookingDto> GetByIdAsync(int id);                         // admin only (enforced in the controller)
+        Task<ChargeBookingDto> GetOwnedAsync(int id, int driverId);          // a driver reading HIS booking
         Task<List<ChargeBookingDto>> GetByDriverIdAsync(int driverId);
         Task<List<ChargeBookingDto>> GetByStationIdAsync(int stationId);
         Task<List<ChargeBookingDto>> GetByOwnerIdAsync(int ownerId);
-        Task<ChargeBookingDto> AddAsync(CreateChargeBookingDto dto);
 
-        // --- מעודכן עם driverId לאבטחת IDOR ---
-        Task<ChargeBookingDto?> UpdateAsync(int id, int driverId, CreateChargeBookingDto dto);
-        Task<ChargeBookingDto?> UpdateStatusAsync(int id, int driverId, string status);
-        Task<bool> DeleteAsync(int id, int driverId);
+        // Writes. driverId always comes from the token, never from the request body.
+        Task<ChargeBookingDto> AddAsync(int driverId, CreateChargeBookingDto dto);
+        Task<ChargeBookingDto> UpdateAsync(int id, int driverId, CreateChargeBookingDto dto);
+        Task<ChargeBookingDto> UpdateStatusAsync(int id, int driverId, string status);
+        Task DeleteAsync(int id, int driverId);
 
         Task<int> ExpireStaleHoldsAsync();
-
-        // מתודת עזר לתרגום UserId ל-DriverId
-        Task<int?> GetDriverIdByUserIdAsync(int userId);
     }
 }

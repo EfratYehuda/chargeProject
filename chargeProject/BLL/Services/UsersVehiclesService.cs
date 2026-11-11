@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using BLL.Exceptions;
 using DAL.Classes;
 using DAL.Repositories.IRepositories;
 using DTO.VEHICLESDTO;
@@ -19,16 +20,23 @@ namespace BLL.Services
             _mapper = mapper;
         }
 
-        public async Task<VehicleDto?> GetByIdAsync(int id)
-        {
-            var entity = await _vehicleRepo.GetByIdAsync(id);
-            return _mapper.Map<VehicleDto>(entity);
-        }
-
         public async Task<List<VehicleDto>> GetAllAsync()
         {
             var entities = await _vehicleRepo.GetAllAsync();
             return _mapper.Map<List<VehicleDto>>(entities);
+        }
+
+        public async Task<VehicleDto> GetByIdAsync(int id)
+        {
+            var entity = await _vehicleRepo.GetByIdAsync(id)
+                ?? throw new NotFoundException("הרכב לא נמצא");
+            return _mapper.Map<VehicleDto>(entity);
+        }
+
+        public async Task<VehicleDto> GetOwnedAsync(int id, int driverId)
+        {
+            var entity = await GetOwnedEntityAsync(id, driverId);
+            return _mapper.Map<VehicleDto>(entity);
         }
 
         public async Task<List<VehicleDto>> GetByDriverIdAsync(int driverId)
@@ -37,60 +45,53 @@ namespace BLL.Services
             return _mapper.Map<List<VehicleDto>>(entities);
         }
 
-        public async Task<VehicleDto> AddAsync(CreateUpdateVehicleDto dto)
+        public async Task<VehicleDto> AddAsync(int driverId, CreateUpdateVehicleDto dto)
         {
-            if (!await _vehicleRepo.DriverExistsAsync(dto.DriverId))
-                throw new KeyNotFoundException($"נהג {dto.DriverId} לא נמצא");
+            if (!await _vehicleRepo.DriverExistsAsync(driverId))
+                throw new NotFoundException("פרופיל הנהג לא נמצא");
 
             var entity = _mapper.Map<UsersVehicles>(dto);
+            entity.DriverId = driverId;   // from the token, not from the client
+
             var savedEntity = await _vehicleRepo.AddAsync(entity);
 
             var fullEntity = await _vehicleRepo.GetByIdAsync(savedEntity.Id);
             return _mapper.Map<VehicleDto>(fullEntity!);
         }
 
-        // --- אבטחת IDOR: עדכון רכב רק אם הוא שייך לנהג ---
-        public async Task<VehicleDto?> UpdateAsync(int id, int driverId, CreateUpdateVehicleDto dto)
+        // IDOR protection: the vehicle is loaded only if it belongs to this driver.
+        public async Task<VehicleDto> UpdateAsync(int id, int driverId, CreateUpdateVehicleDto dto)
         {
-            var entity = await _vehicleRepo.GetOwnedAsync(id, driverId);
-            if (entity == null) return null;
+            var entity = await GetOwnedEntityAsync(id, driverId);
 
-            var originalDriverId = entity.DriverId; // שמירת המזהה המקורי למניעת העברת רכב
             _mapper.Map(dto, entity);
-            entity.DriverId = originalDriverId;
+            entity.DriverId = driverId;   // the vehicle can never be moved to another driver
 
             var updatedEntity = await _vehicleRepo.UpdateAsync(entity);
             return _mapper.Map<VehicleDto>(updatedEntity);
         }
 
-        // --- אבטחת IDOR: עדכון סוללה רק אם הרכב שייך לנהג ---
-        public async Task<VehicleDto?> UpdateCurrentBatteryAsync(int id, int driverId, double batteryPercent)
+        public async Task<VehicleDto> UpdateCurrentBatteryAsync(int id, int driverId, double batteryPercent)
         {
             if (batteryPercent < 0 || batteryPercent > 100)
-                throw new ArgumentOutOfRangeException(nameof(batteryPercent), "אחוז סוללה חייב להיות בין 0 ל-100");
+                throw new BusinessRuleException("אחוז סוללה חייב להיות בין 0 ל-100");
 
-            var entity = await _vehicleRepo.GetOwnedAsync(id, driverId);
-            if (entity == null) return null;
+            var entity = await GetOwnedEntityAsync(id, driverId);
 
             entity.CurrentBattery = batteryPercent;
             var updatedEntity = await _vehicleRepo.UpdateAsync(entity);
-
             return _mapper.Map<VehicleDto>(updatedEntity);
         }
 
-        // --- אבטחת IDOR: מחיקת רכב רק אם הוא שייך לנהג ---
-        public async Task<bool> DeleteAsync(int id, int driverId)
+        public async Task DeleteAsync(int id, int driverId)
         {
-            var entity = await _vehicleRepo.GetOwnedAsync(id, driverId);
-            if (entity == null) return false;
-
-            return await _vehicleRepo.DeleteAsync(id);
+            await GetOwnedEntityAsync(id, driverId);   // throws NotFoundException if it is not his
+            await _vehicleRepo.DeleteAsync(id);
         }
 
-        // מתודת עזר הממירה את ה-UserId ל-DriverId דרך ה-Repository
-        public async Task<int?> GetDriverIdByUserIdAsync(int userId)
-        {
-            return await _vehicleRepo.GetDriverIdByUserIdAsync(userId);
-        }
+        // One place for "give me the vehicle only if it is mine". Not yours and does not exist look the same: 404.
+        private async Task<UsersVehicles> GetOwnedEntityAsync(int id, int driverId) =>
+            await _vehicleRepo.GetOwnedAsync(id, driverId)
+                ?? throw new NotFoundException("הרכב לא נמצא");
     }
 }

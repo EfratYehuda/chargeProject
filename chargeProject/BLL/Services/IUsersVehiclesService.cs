@@ -6,17 +6,16 @@ namespace BLL.Services
 {
     public interface IUsersVehiclesService
     {
-        Task<VehicleDto?> GetByIdAsync(int id);
-        Task<List<VehicleDto>> GetAllAsync();
+        // Reads. Everything that "returns one item" throws NotFoundException instead of returning null.
+        Task<List<VehicleDto>> GetAllAsync();                           // admin only (enforced in the controller)
+        Task<VehicleDto> GetByIdAsync(int id);                          // admin only (enforced in the controller)
+        Task<VehicleDto> GetOwnedAsync(int id, int driverId);           // a driver reading HIS vehicle
         Task<List<VehicleDto>> GetByDriverIdAsync(int driverId);
-        Task<VehicleDto> AddAsync(CreateUpdateVehicleDto dto);
 
-        // מעודכן עם driverId לאבטחת IDOR:
-        Task<VehicleDto?> UpdateAsync(int id, int driverId, CreateUpdateVehicleDto dto);
-        Task<VehicleDto?> UpdateCurrentBatteryAsync(int id, int driverId, double batteryPercent);
-        Task<bool> DeleteAsync(int id, int driverId);
-
-        // מתודת עזר לחיפוש ה-DriverId לפי ה-UserId מהטוקן:
-        Task<int?> GetDriverIdByUserIdAsync(int userId);
+        // Writes. driverId always comes from the token, never from the request body.
+        Task<VehicleDto> AddAsync(int driverId, CreateUpdateVehicleDto dto);
+        Task<VehicleDto> UpdateAsync(int id, int driverId, CreateUpdateVehicleDto dto);
+        Task<VehicleDto> UpdateCurrentBatteryAsync(int id, int driverId, double batteryPercent);
+        Task DeleteAsync(int id, int driverId);
     }
 }
