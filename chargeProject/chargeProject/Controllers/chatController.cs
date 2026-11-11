@@ -11,10 +11,10 @@ namespace chargeProject.Controllers
     public class chatController : ControllerBase
     {
 
-        private IAgentService agentService;
+        private IAgentService _agentService;
         public chatController(IAgentService agentService)
         {
-            this.agentService = agentService;
+            _agentService = agentService;
         }
 
 
@@ -57,7 +57,7 @@ namespace chargeProject.Controllers
 
             try
             {
-                await foreach (var chunk in agentService.AskStreamingAsync(dto.Messages, ct))
+                await foreach (var chunk in _agentService.AskStreamingAsync(dto.Messages, ct))
                 {
                     // JSON כדי ששורה חדשה בתוך הטקסט לא תשבור את הפורמט
                     var json = JsonSerializer.Serialize(new { text = chunk });
