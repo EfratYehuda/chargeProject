@@ -10,22 +10,47 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.AI;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using OpenAI;
+using System.ClientModel;
 using MyApp.BLL.Services;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ---------AI agent
+var apiKey = builder.Configuration["GEMINI:APIKEY"]
+    ?? throw new InvalidOperationException("Gemini:ApiKey is missing");
+
+// δλϊεαϊ ωμ Gemini ωξγαψϊ ατεψξθ ωμ OpenAI
+var options = new OpenAIClientOptions
+{
+    Endpoint = new Uri("https://generativelanguage.googleapis.com/v1beta/openai/")
+};
+
+IChatClient innerClient = new OpenAIClient(new ApiKeyCredential(apiKey), options)
+    .GetChatClient("gemini-3.8-flash")
+    .AsIChatClient();
+
+
+builder.Services.AddChatClient(innerClient)
+    .UseFunctionInvocation();   // ξψιυ ΰϊ δλμιν ωδξεγμ ξαχω
+
+builder.Services.AddScoped<IAgentService, AgentService>();
+
+// Add services to the container.
+
 builder.Services.AddControllers();
 
-//   ΧΧ™Χ¤Χ•Χ ΧΧ¨Χ›Χ–Χ™ Χ‘Χ©Χ’Χ™ΧΧ•Χª 
-// Χ›Χ Χ©Χ’Χ™ΧΧ” Χ©Χ Χ–Χ¨Χ§Χª Χ‘Χ§Χ•Χ“ Χ”Χ•Χ¤Χ›Χª ΧΧ΅ΧΧΧ•Χ΅ HTTP ΧΧªΧΧ™Χ (404, 401, 403, 409...) Χ‘ΧΧ§Χ•Χ 500 Χ›ΧΧΧ™.
-// Χ”Χ§Χ•Χ‘Χ¥ Middleware/GlobalExceptionHandler.cs Χ—Χ™Χ™Χ‘ ΧΧ”Χ™Χ•Χª Χ§Χ™Χ™Χ ΧΧ¤Χ Χ™ Χ©ΧΧ¨Χ™Χ¦Χ™Χ.
+//   θιτεμ ξψλζι αωβιΰεϊ 
+// λμ ωβιΰδ ωπζψχϊ αχεγ δετλϊ μρθθερ HTTP ξϊΰιν (404, 401, 403, 409...) αξχεν 500 λμμι.
+// δχεαυ Middleware/GlobalExceptionHandler.cs ηιια μδιεϊ χιιν μτπι ωξψιφιν.
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
-//  Χ΅Χ•Χ•ΧΧ’Χ¨ ΧΆΧ ΧΧ¤Χ©Χ¨Χ•Χª ΧΧ”Χ“Χ‘Χ§Χª ΧΧ•Χ§Χ (Χ›Χ¤ΧªΧ•Χ¨ Authorize)
+//  ρεεΰβψ ςν ΰτωψεϊ μδγαχϊ θεχο (λτϊεψ Authorize)
 builder.Services.AddOpenApi(options =>
 {
     options.OpenApiVersion = OpenApiSpecVersion.OpenApi3_0;
@@ -59,9 +84,9 @@ builder.Services.AddDbContext<DAL.Data.AppDbContext>(options =>
 builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());
 
 
-// Χ”Χ•Χ΅Χ¨ Χ”ΧΧ¤ΧªΧ— Χ”Χ§Χ‘Χ•ΧΆ Χ©Χ”Χ™Χ” Χ›ΧªΧ•Χ‘ Χ‘Χ§Χ•Χ“ (Χ΅Χ™Χ›Χ•Χ ΧΧ‘ΧΧ—Χ”: ΧΧ™ Χ©Χ¨Χ•ΧΧ” ΧΧª Χ”Χ§Χ•Χ“ Χ™Χ›Χ•Χ ΧΧ–Χ™Χ™Χ£ ΧΧ•Χ§Χ).
-// ΧΆΧ›Χ©Χ™Χ• Χ”ΧΧ¤ΧªΧ—, Χ”-Issuer Χ•Χ”-Audience Χ‘ΧΧ™Χ Χ¨Χ§ Χ-appsettings.json,
-// Χ•Χ”ΧΧ¤ΧΧ™Χ§Χ¦Χ™Χ” ΧΧ΅Χ¨Χ‘Χª ΧΧΆΧΧ•Χª ΧΧ Χ—Χ΅Χ¨ ΧΧ©Χ”Χ• - Χ›Χ Χ©Χ¨Χ•ΧΧ™Χ ΧΧª Χ”Χ‘ΧΆΧ™Χ” ΧΧ™Χ“ Χ•ΧΧ Χ“Χ¨Χ Χ©Χ’Χ™ΧΧ•Χª 401 ΧΧ΅ΧªΧ•Χ¨Χ™Χ•Χª.
+// δερψ δξτϊη δχαες ωδιδ λϊεα αχεγ (ριλεο ΰαθηδ: ξι ωψεΰδ ΰϊ δχεγ ιλεμ μζιισ θεχο).
+// ςλωιε δξτϊη, δ-Issuer εδ-Audience αΰιν ψχ ξ-appsettings.json,
+// εδΰτμιχφιδ ξρψαϊ μςμεϊ ΰν ηρψ ξωδε - λκ ωψεΰιν ΰϊ δαςιδ ξιγ εμΰ γψκ ωβιΰεϊ 401 ξρϊεψιεϊ.
 var jwtKey = builder.Configuration["Jwt:Key"];
 var jwtIssuer = builder.Configuration["Jwt:Issuer"];
 var jwtAudience = builder.Configuration["Jwt:Audience"];
@@ -81,28 +106,28 @@ builder.Services
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = true,                 // Χ Χ©ΧΧ¨ true: Χ”Χ©Χ¨Χª Χ‘Χ•Χ“Χ§ ΧΧ™ Χ”Χ Χ¤Χ™Χ§ ΧΧª Χ”ΧΧ•Χ§Χ
-            ValidIssuer = jwtIssuer,               // Χ©Χ•Χ Χ”: Χ‘ΧΧ™ ΧΆΧ¨Χ Χ‘Χ¨Χ™Χ¨Χª ΧΧ—Χ“Χ, Χ‘Χ“Χ™Χ•Χ§ ΧΧ•ΧªΧ• ΧΆΧ¨Χ Χ©Χ”-TokenService Χ—Χ•ΧªΧ ΧΧ™ΧªΧ•
+            ValidateIssuer = true,                 // πωΰψ true: δωψϊ αεγχ ξι δπτιχ ΰϊ δθεχο
+            ValidIssuer = jwtIssuer,               // ωεπδ: αμι ςψκ αψιψϊ ξηγμ, αγιεχ ΰεϊε ςψκ ωδ-TokenService ηεϊν ΰιϊε
 
-            ValidateAudience = true,               // Χ Χ©ΧΧ¨ true: Χ”Χ©Χ¨Χª Χ‘Χ•Χ“Χ§ ΧΧΧ™ Χ”ΧΧ•Χ§Χ ΧΧ™Χ•ΧΆΧ“
-            ValidAudience = jwtAudience,           // Χ©Χ•Χ Χ”: Χ‘ΧΧ™ ΧΆΧ¨Χ Χ‘Χ¨Χ™Χ¨Χª ΧΧ—Χ“Χ
+            ValidateAudience = true,               // πωΰψ true: δωψϊ αεγχ μξι δθεχο ξιεςγ
+            ValidAudience = jwtAudience,           // ωεπδ: αμι ςψκ αψιψϊ ξηγμ
 
-            ValidateLifetime = true,               // Χ Χ©ΧΧ¨ true: ΧΧ•Χ§Χ Χ©Χ¤Χ’ ΧªΧ•Χ§Χ¤Χ• Χ Χ“Χ—Χ”
+            ValidateLifetime = true,               // πωΰψ true: θεχο ωτβ ϊεχτε πγηδ
             ClockSkew = TimeSpan.Zero,
 
-            ValidateIssuerSigningKey = true,       // Χ Χ©ΧΧ¨ true: Χ‘Χ•Χ“Χ§ Χ©Χ”Χ—ΧªΧ™ΧΧ” ΧªΧ•ΧΧΧª ΧΧΧ¤ΧªΧ— Χ”Χ΅Χ•Χ“Χ™
+            ValidateIssuerSigningKey = true,       // πωΰψ true: αεγχ ωδηϊιξδ ϊεΰξϊ μξτϊη δρεγι
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
         };
     });
 
 builder.Services.AddAuthorization(options =>
 {
-    // Χ›Χ Χ Χ§Χ•Χ“Χª Χ§Χ¦Χ” Χ“Χ•Χ¨Χ©Χª Χ”ΧªΧ—Χ‘Χ¨Χ•Χª, Χ—Χ•Χ¥ ΧΧΧ” Χ©ΧΧ΅Χ•ΧΧ [AllowAnonymous] (register Χ•-login)
+    // λμ πχεγϊ χφδ γεψωϊ δϊηαψεϊ, ηευ ξξδ ωξρεξο [AllowAnonymous] (register ε-login)
     options.FallbackPolicy = new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
         .Build();
 
-    // Χ—Χ“Χ©: ΧΧ“Χ™Χ Χ™Χ•Χª ΧΧ¤Χ™ Χ¤Χ¨Χ•Χ¤Χ™Χ. Χ Χ©ΧªΧΧ© Χ‘Χ”Χ Χ‘Χ—ΧΧ§Χ™Χ Χ”Χ‘ΧΧ™Χ ΧΆΧ [Authorize(Policy = "Driver")]
+    // ηγω: ξγιπιεϊ μτι τψετιμ. πωϊξω αδο αημχιν δαΰιν ςν [Authorize(Policy = "Driver")]
     options.AddPolicy("Driver", policy => policy.RequireClaim("driverId"));
     options.AddPolicy("Owner", policy => policy.RequireClaim("ownerId"));
 });
@@ -129,12 +154,12 @@ builder.Services.AddScoped<IPasswordHasher<Users>, PasswordHasher<Users>>();
 
 var app = builder.Build();
 
-// Χ—Χ™Χ™Χ‘ ΧΧ”Χ™Χ•Χª ΧΧ•Χ§Χ“Χ Χ‘Χ¦Χ Χ¨Χª, Χ›Χ“Χ™ ΧΧªΧ¤Χ•Χ΅ Χ©Χ’Χ™ΧΧ•Χª ΧΧ›Χ ΧΧ” Χ©Χ‘Χ ΧΧ—Χ¨Χ™Χ•
+// ηιια μδιεϊ ξεχγν αφπψϊ, λγι μϊτερ ωβιΰεϊ ξλμ ξδ ωαΰ ΰηψιε
 app.UseExceptionHandler();
 
-//  Χ”Χ¤Χ™Χ›Χª ΧΧ©ΧªΧΧ©Χ™Χ Χ΅Χ¤Χ¦Χ™Χ¤Χ™Χ™Χ ΧΧΧ“ΧΧ™Χ Χ‘ΧΆΧª ΧΆΧΧ™Χ™Χª Χ”Χ©Χ¨Χª
-// Χ§Χ•Χ¨Χ ΧΧª Χ”Χ¨Χ©Χ™ΧΧ” "AdminEmails" Χ-appsettings.json Χ•ΧΧΆΧ“Χ›Χ Access = "Admin".
-// ΧΧ–Χ”Χ¨Χ”: Χ”ΧΧ™ΧΧ™Χ™Χ ΧΧ ΧΧΧ•ΧΧª. Χ”ΧΧ“ΧΧ™Χ Χ”ΧΧΧ™ΧªΧ™ Χ—Χ™Χ™Χ‘ ΧΧ”Χ™Χ¨Χ©Χ Χ§Χ•Χ“Χ, Χ•Χ¨Χ§ ΧΧ—Χ¨ Χ›Χ ΧΧ”Χ•Χ΅Χ™Χ£ ΧΧª Χ”ΧΧ™ΧΧ™Χ™Χ Χ©ΧΧ• ΧΧ¨Χ©Χ™ΧΧ”.
+//  δτιλϊ ξωϊξωιν ρτφιτιιν μΰγξιο αςϊ ςμιιϊ δωψϊ
+// χεψΰ ΰϊ δψωιξδ "AdminEmails" ξ-appsettings.json εξςγλο Access = "Admin".
+// ΰζδψδ: δΰιξιιμ μΰ ξΰεξϊ. δΰγξιο δΰξιϊι ηιια μδιψων χεγν, εψχ ΰηψ λκ μδερισ ΰϊ δΰιξιιμ ωμε μψωιξδ.
 
 using (var scope = app.Services.CreateScope())
 {
@@ -163,14 +188,14 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex)
     {
-        // ΧΧ ΧΧ΅Χ“ Χ”Χ ΧªΧ•Χ Χ™Χ ΧΆΧ“Χ™Χ™Χ ΧΧ Χ§Χ™Χ™Χ, Χ”Χ©Χ¨Χª ΧΧ Χ§Χ•Χ¨Χ΅, Χ¨Χ§ Χ›Χ•ΧªΧ‘ ΧΧΧ•Χ’
+        // ΰν ξργ δπϊεπιν ςγιιο μΰ χιιν, δωψϊ μΰ χεψρ, ψχ λεϊα μμεβ
         logger.LogError(ex, "Could not apply AdminEmails at startup. Is the database created and migrated?");
     }
 }
 
 if (app.Environment.IsDevelopment())
 {
-    // AllowAnonymous Χ Χ—Χ•Χ¥, ΧΧ—Χ¨Χª Χ”-FallbackPolicy Χ—Χ•Χ΅Χ ΧΧª Χ”Χ΅Χ•Χ•ΧΧ’Χ¨ ΧΆΧ¦ΧΧ•
+    // AllowAnonymous πηευ, ΰηψϊ δ-FallbackPolicy ηερν ΰϊ δρεεΰβψ ςφξε
     app.MapOpenApi().AllowAnonymous();
 
     app.UseSwaggerUI(options =>
@@ -181,9 +206,25 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseAuthentication();   // Χ§Χ•Χ“Χ Χ‘Χ•Χ“Χ§ ΧΧ™ ΧΧªΧ” (Χ§Χ•Χ¨Χ ΧΧª Χ”ΧΧ•Χ§Χ)
-app.UseAuthorization();    // Χ•ΧΧ– Χ‘Χ•Χ“Χ§ ΧΧ” ΧΧ•ΧªΧ¨ ΧΧ. Χ”Χ΅Χ“Χ¨ Χ”Χ–Χ” Χ—Χ©Χ•Χ‘
+app.UseAuthentication();   // χεγν αεγχ ξι ΰϊδ (χεψΰ ΰϊ δθεχο)
+app.UseAuthorization();    // εΰζ αεγχ ξδ ξεϊψ μκ. δργψ δζδ ηωεα
 
 app.MapControllers();
 
+
+//// αγιχδ ιωιψδ ωμ δ-AgentService αςμιιϊ δωψϊ
+//using (var scope = app.Services.CreateScope())
+//{
+//    var agent = scope.ServiceProvider.GetRequiredService<BLL.Services.IAgentService>();
+//    Console.WriteLine(">>> ωεΰμ ΰϊ δΰιιβ'πθ δΰξιϊι...");
+
+//    var reply = await agent.AskAsync(new List<DTO.AIDTO.ChatMessageDto>
+//    {
+//        new DTO.AIDTO.ChatMessageDto { Role = "user", Text = "ωμεν, ϊφιβ ΰϊ ςφξκ αξωτθ ΰηγ χφψ" }
+//    }, CancellationToken.None);
+
+//    Console.WriteLine("*****************************************************");
+//    Console.WriteLine($">>> ϊωεαδ ιωιψδ ξδΰιιβ'πθ:\n{reply}");
+//    Console.WriteLine("*****************************************************");
+//}
 app.Run();
