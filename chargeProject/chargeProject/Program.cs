@@ -1,11 +1,12 @@
 using BLL.Mapper;
 using BLL.Services;
-using chargeProject.Middleware;                          
+using BLL.Agent; // נוסף כדי לזהות את הכלים
+using chargeProject.Middleware;
 using DAL.Classes;
 using DAL.Data;
 using DAL.Repositories.ClassRepositories;
 using DAL.Repositories.IRepositories;
-using DTO;                                               
+using DTO;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -20,7 +21,7 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ---------AI agent
+// --------- AI Agent ---------
 var apiKey = builder.Configuration["GEMINI:APIKEY"]
     ?? throw new InvalidOperationException("Gemini:ApiKey is missing");
 
@@ -34,23 +35,33 @@ IChatClient innerClient = new OpenAIClient(new ApiKeyCredential(apiKey), options
     .GetChatClient("gemini-3.8-flash")
     .AsIChatClient();
 
-
 builder.Services.AddChatClient(innerClient)
     .UseFunctionInvocation();   // מריץ את הכלים שהמודל מבקש
 
 builder.Services.AddScoped<IAgentService, AgentService>();
 
-// Add services to the container.
+// --- רישום כלי ה-AI (חלק ב' של הפרויקט) ---
+// 1. כלי מסד הנתונים
+builder.Services.AddScoped<StationTools>();
 
+// 2. כלי ה-API החיצוני למיקומים עם HttpClient
+builder.Services.AddHttpClient<LocationTools>(client =>
+{
+    client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
+    // OpenStreetMap מחייב User-Agent תקין
+    client.DefaultRequestHeaders.Add("User-Agent", "ChargeProjectApp/1.0");
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
+// ----------------------------------------
+
+// Add services to the container.
 builder.Services.AddControllers();
 
-//   טיפול מרכזי בשגיאות 
-// כל שגיאה שנזרקת בקוד הופכת לסטטוס HTTP מתאים (404, 401, 403, 409...) במקום 500 כללי.
-// הקובץ Middleware/GlobalExceptionHandler.cs חייב להיות קיים לפני שמריצים.
+// טיפול מרכזי בשגיאות
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
-//  סוואגר עם אפשרות להדבקת טוקן (כפתור Authorize)
+// סוואגר עם אפשרות להדבקת טוקן
 builder.Services.AddOpenApi(options =>
 {
     options.OpenApiVersion = OpenApiSpecVersion.OpenApi3_0;
@@ -83,10 +94,6 @@ builder.Services.AddDbContext<DAL.Data.AppDbContext>(options =>
 
 builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());
 
-
-// הוסר המפתח הקבוע שהיה כתוב בקוד (סיכון אבטחה: מי שרואה את הקוד יכול לזייף טוקן).
-// עכשיו המפתח, ה-Issuer וה-Audience באים רק מ-appsettings.json,
-// והאפליקציה מסרבת לעלות אם חסר משהו - כך שרואים את הבעיה מיד ולא דרך שגיאות 401 מסתוריות.
 var jwtKey = builder.Configuration["Jwt:Key"];
 var jwtIssuer = builder.Configuration["Jwt:Issuer"];
 var jwtAudience = builder.Configuration["Jwt:Audience"];
@@ -106,32 +113,28 @@ builder.Services
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = true,                 // נשאר true: השרת בודק מי הנפיק את הטוקן
-            ValidIssuer = jwtIssuer,               // שונה: בלי ערך ברירת מחדל, בדיוק אותו ערך שה-TokenService חותם איתו
-
-            ValidateAudience = true,               // נשאר true: השרת בודק למי הטוקן מיועד
-            ValidAudience = jwtAudience,           // שונה: בלי ערך ברירת מחדל
-
-            ValidateLifetime = true,               // נשאר true: טוקן שפג תוקפו נדחה
+            ValidateIssuer = true,
+            ValidIssuer = jwtIssuer,
+            ValidateAudience = true,
+            ValidAudience = jwtAudience,
+            ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero,
-
-            ValidateIssuerSigningKey = true,       // נשאר true: בודק שהחתימה תואמת למפתח הסודי
+            ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
         };
     });
 
 builder.Services.AddAuthorization(options =>
 {
-    // כל נקודת קצה דורשת התחברות, חוץ ממה שמסומן [AllowAnonymous] (register ו-login)
     options.FallbackPolicy = new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
         .Build();
 
-    // חדש: מדיניות לפי פרופיל. נשתמש בהן בחלקים הבאים עם [Authorize(Policy = "Driver")]
     options.AddPolicy("Driver", policy => policy.RequireClaim("driverId"));
     options.AddPolicy("Owner", policy => policy.RequireClaim("ownerId"));
 });
 
+// Repositories
 builder.Services.AddScoped<InterfaceUser, UserRepository>();
 builder.Services.AddScoped<InterfaceDriver, DriversRepository>();
 builder.Services.AddScoped<InterfaceOwner, OwnerRepository>();
@@ -141,6 +144,7 @@ builder.Services.AddScoped<InterfaceChargeBooking, ChargeBookingRepository>();
 builder.Services.AddScoped<InterfaceReviewsToCharge, ReviewsToChargeRepository>();
 builder.Services.AddScoped<InterfaceStationStatusLogs, StationStatusLogsRepository>();
 
+// Services
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IDriversService, DriversService>();
@@ -151,15 +155,11 @@ builder.Services.AddScoped<IChargeBookingService, ChargeBookingService>();
 builder.Services.AddScoped<IReviewsToChargeService, ReviewsToChargeService>();
 builder.Services.AddScoped<IStationStatusLogsService, StationStatusLogsService>();
 builder.Services.AddScoped<IPasswordHasher<Users>, PasswordHasher<Users>>();
+builder.Services.AddScoped<BLL.Algorithm.StationMatchingAlgorithm>();
 
 var app = builder.Build();
 
-// חייב להיות מוקדם בצנרת, כדי לתפוס שגיאות מכל מה שבא אחריו
 app.UseExceptionHandler();
-
-//  הפיכת משתמשים ספציפיים לאדמין בעת עליית השרת
-// קורא את הרשימה "AdminEmails" מ-appsettings.json ומעדכן Access = "Admin".
-// אזהרה: האימייל לא מאומת. האדמין האמיתי חייב להירשם קודם, ורק אחר כך להוסיף את האימייל שלו לרשימה.
 
 using (var scope = app.Services.CreateScope())
 {
@@ -188,14 +188,12 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex)
     {
-        // אם מסד הנתונים עדיין לא קיים, השרת לא קורס, רק כותב ללוג
         logger.LogError(ex, "Could not apply AdminEmails at startup. Is the database created and migrated?");
     }
 }
 
 if (app.Environment.IsDevelopment())
 {
-    // AllowAnonymous נחוץ, אחרת ה-FallbackPolicy חוסם את הסוואגר עצמו
     app.MapOpenApi().AllowAnonymous();
 
     app.UseSwaggerUI(options =>
@@ -206,25 +204,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseAuthentication();   // קודם בודק מי אתה (קורא את הטוקן)
-app.UseAuthorization();    // ואז בודק מה מותר לך. הסדר הזה חשוב
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 
-
-//// בדיקה ישירה של ה-AgentService בעליית השרת
-//using (var scope = app.Services.CreateScope())
-//{
-//    var agent = scope.ServiceProvider.GetRequiredService<BLL.Services.IAgentService>();
-//    Console.WriteLine(">>> שואל את האייג'נט האמיתי...");
-
-//    var reply = await agent.AskAsync(new List<DTO.AIDTO.ChatMessageDto>
-//    {
-//        new DTO.AIDTO.ChatMessageDto { Role = "user", Text = "שלום, תציג את עצמך במשפט אחד קצר" }
-//    }, CancellationToken.None);
-
-//    Console.WriteLine("*****************************************************");
-//    Console.WriteLine($">>> תשובה ישירה מהאייג'נט:\n{reply}");
-//    Console.WriteLine("*****************************************************");
-//}
 app.Run();

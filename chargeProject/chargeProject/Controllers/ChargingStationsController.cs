@@ -1,14 +1,14 @@
-﻿using BLL.Services;
+﻿using BLL.Algorithm; // הוספנו כדי להכיר את האלגוריתם וה-Request
+using BLL.Services;
 using chargeProject.Extensions;
 using DTO.STATIONDTO;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace chargeProject.Controllers
 {
-    // Reading stations is allowed for any logged-in user (drivers search for them).
-    // Changing a station requires the "Owner" policy, and the ownerId comes from the token,
-    // so an owner can only ever touch his own stations.
     [Route("api/[controller]")]
     [ApiController]
     [Authorize]
@@ -19,6 +19,26 @@ namespace chargeProject.Controllers
         public ChargingStationsController(IChargingStationsService chargingStationsService)
         {
             _chargingStationsService = chargingStationsService;
+        }
+
+        // --- פעולה חדשה לריאקט: קבלת עמדות ממוינות באחוזים לפי צ'ק ליסט העדפות ---
+        [AllowAnonymous]
+        [HttpPost("recommend")]
+        public async Task<ActionResult<List<RankedStationResult>>> RecommendStations(
+            [FromBody] DriverPreferenceRequest request,
+            [FromServices] StationMatchingAlgorithm algorithm)
+        {
+            // 1. שולף עמדות פעילות ברדיוס 30 ק"מ
+            var stations = await _chargingStationsService.GetActiveInRadiusAsync(
+                request.DriverLatitude,
+                request.DriverLongitude,
+                30,
+                request.RequiredChargerType);
+
+            // 2. מריץ את האלגוריתם המשקלל
+            var results = algorithm.RankStations(stations, request);
+
+            return Ok(results);
         }
 
         [HttpGet]
