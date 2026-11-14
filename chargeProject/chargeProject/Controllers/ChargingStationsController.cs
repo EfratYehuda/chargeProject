@@ -28,11 +28,13 @@ namespace chargeProject.Controllers
             [FromBody] DriverPreferenceRequest request,
             [FromServices] StationMatchingAlgorithm algorithm)
         {
-            // 1. שולף עמדות פעילות ברדיוס 30 ק"מ
+            // רדיוס השליפה נקבע דינמית לפי טווח הסוללה (3 ק"מ לכל 1%), בין 30 ל-500 ק"מ
+            double searchRadius = Math.Clamp(request.BatteryPercentage * 3.0, 30, 500);
+
             var stations = await _chargingStationsService.GetActiveInRadiusAsync(
                 request.DriverLatitude,
                 request.DriverLongitude,
-                30,
+                searchRadius,
                 request.RequiredChargerType);
 
             // 2. מריץ את האלגוריתם המשקלל

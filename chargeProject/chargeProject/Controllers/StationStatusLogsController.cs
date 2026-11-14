@@ -1,22 +1,66 @@
-﻿using BLL.Services;
+﻿using BLL.Exceptions;
+using BLL.Services;
+using chargeProject.Extensions;
 using DTO;
+using DTO.STATIONDTO;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
 
 namespace chargeProject.Controllers
 {
-    // The status of one station is readable by any logged-in user (drivers need it).
-    // Listing every log and deleting logs is admin only.
     [Route("api/[controller]")]
     [ApiController]
     [Authorize]
     public class StationStatusLogsController : ControllerBase
     {
         private readonly IStationStatusLogsService _stationStatusLogsService;
+        private readonly IChargingStationsService _chargingStationsService;
 
-        public StationStatusLogsController(IStationStatusLogsService stationStatusLogsService)
+        public StationStatusLogsController(
+            IStationStatusLogsService stationStatusLogsService,
+            IChargingStationsService chargingStationsService)
         {
             _stationStatusLogsService = stationStatusLogsService;
+            _chargingStationsService = chargingStationsService;
+        }
+
+        public class ReportFaultRequest
+        {
+            [Required]
+            public int StationId { get; set; }
+        }
+
+        // נהג מדווח על תקלה בעמדה -> מסמן את העמדה כ-Faulty
+        [HttpPost("report-fault")]
+        [Authorize(Policy = "Driver")]
+        public async Task<IActionResult> ReportFault([FromBody] ReportFaultRequest request)
+        {
+            var dto = new CreateStationStatusLogDto
+            {
+                StationId = request.StationId,
+                Status = StationStatuses.Faulty,
+                CurrentDriverId = User.GetRequiredDriverId()
+            };
+            return Ok(await _stationStatusLogsService.AddAsync(dto));
+        }
+
+        // בעל התחנה מסמן שהתקלה תוקנה -> מחזיר את העמדה לסטטוס Available
+        [HttpPost("station/{stationId}/resolve")]
+        [Authorize(Policy = "Owner")]
+        public async Task<IActionResult> ResolveFault(int stationId)
+        {
+            var station = await _chargingStationsService.GetByIdAsync(stationId);
+            if (station.OwnerId != User.GetRequiredOwnerId())
+                throw new NotFoundException("העמדה לא נמצאה");
+
+            var dto = new CreateStationStatusLogDto
+            {
+                StationId = stationId,
+                Status = StationStatuses.Available,
+                CurrentDriverId = null
+            };
+            return Ok(await _stationStatusLogsService.AddAsync(dto));
         }
 
         [HttpGet]

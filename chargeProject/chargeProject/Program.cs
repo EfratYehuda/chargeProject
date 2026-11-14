@@ -26,12 +26,12 @@ var apiKey = builder.Configuration["GEMINI:APIKEY"]
     ?? throw new InvalidOperationException("Gemini:ApiKey is missing");
 
 // הכתובת של Gemini שמדברת בפורמט של OpenAI
-var options = new OpenAIClientOptions
+var openAiOptions = new OpenAIClientOptions
 {
     Endpoint = new Uri("https://generativelanguage.googleapis.com/v1beta/openai/")
 };
 
-IChatClient innerClient = new OpenAIClient(new ApiKeyCredential(apiKey), options)
+IChatClient innerClient = new OpenAIClient(new ApiKeyCredential(apiKey), openAiOptions)
     .GetChatClient("gemini-3.8-flash")
     .AsIChatClient();
 
@@ -56,6 +56,17 @@ builder.Services.AddHttpClient<LocationTools>(client =>
 
 // Add services to the container.
 builder.Services.AddControllers();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowReactDev", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:5173", "http://localhost:3000")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 
 // טיפול מרכזי בשגיאות
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
@@ -202,9 +213,16 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
+app.UseCors("AllowReactDev");
 
 app.UseAuthentication();
+
+
 app.UseAuthorization();
 
 app.MapControllers();
