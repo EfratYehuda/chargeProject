@@ -86,5 +86,17 @@ namespace DAL.Repositories.ClassRepositories
             var owner = await _context.Set<Owner>().FirstOrDefaultAsync(o => o.UserId == userId);
             return owner?.Id;
         }
+
+        public async Task<List<ChargingStations>> SearchAsync(string? text, int max = 5)
+        {
+            var query = Stations.Where(s => s.IsActive);
+
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                query = query.Where(s => s.Address.Contains(text) || s.Name.Contains(text));
+            }
+
+            return await query.Take(max).ToListAsync();
+        }
     }
 }

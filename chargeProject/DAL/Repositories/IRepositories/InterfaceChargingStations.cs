@@ -20,6 +20,8 @@ namespace DAL.Repositories.IRepositories
         Task<ChargingStations?> UpdateAsync(ChargingStations entity);
         Task<bool> DeleteAsync(int id);
         Task<bool> OwnerExistsAsync(int ownerId);
+
+        Task<List<ChargingStations>> SearchAsync(string? text, int max = 5);
         //Task<object?> AddAsync(CreateUpdateStationDto dto);
     }
 }

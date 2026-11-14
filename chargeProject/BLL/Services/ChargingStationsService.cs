@@ -101,5 +101,11 @@ namespace BLL.Services
         private async Task<ChargingStations> GetOwnedEntityAsync(int id, int ownerId) =>
             await _stationsRepo.GetOwnedAsync(id, ownerId)
                 ?? throw new NotFoundException("העמדה לא נמצאה");
+
+        public async Task<List<StationDto>> SearchAsync(string? text, int max = 5)
+        {
+            var entities = await _stationsRepo.SearchAsync(text, max);
+            return _mapper.Map<List<StationDto>>(entities);
+        }
     }
 }
