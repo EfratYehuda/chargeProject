@@ -4,7 +4,10 @@ using chargeProject.Extensions;
 using DTO;
 using DTO.USERDTO;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace chargeProject.Controllers
 {
@@ -14,10 +17,17 @@ namespace chargeProject.Controllers
     public class UsersController : ControllerBase
     {
         private readonly IUserService _userService;
+        private readonly IWebHostEnvironment _env;
+        private readonly ILogger<UsersController> _logger;
 
-        public UsersController(IUserService userService)
+        public UsersController(
+            IUserService userService,
+            IWebHostEnvironment env,
+            ILogger<UsersController> logger)
         {
             _userService = userService;
+            _env = env;
+            _logger = logger;
         }
 
         // ---------- Public endpoints (no token needed) ----------
@@ -43,11 +53,50 @@ namespace chargeProject.Controllers
             return Ok(result);
         }
 
+        // POST api/users/forgot-password
+        [HttpPost("forgot-password")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto dto)
+        {
+            var result = await _userService.ForgotPasswordAsync(dto);
+
+            if (!result.SentViaEmail && !string.IsNullOrEmpty(result.DevCode))
+            {
+                _logger.LogWarning("Password reset code for {Email}: {Code}", dto.Email, result.DevCode);
+            }
+
+            return Ok(new
+            {
+                message = result.SentViaEmail
+                    ? "אם כתובת האימייל קיימת במערכת, נשלח אליה קוד איפוס בן 6 ספרות."
+                    : "אם כתובת האימייל קיימת במערכת, נוצר קוד איפוס בן 6 ספרות.",
+                sentViaEmail = result.SentViaEmail,
+                devCode = _env.IsDevelopment() && !result.SentViaEmail ? result.DevCode : null
+            });
+        }
+
+        // POST api/users/reset-password
+        [HttpPost("reset-password")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
+        {
+            await _userService.ResetPasswordAsync(dto);
+            return Ok(new { message = "הסיסמה אופסה בהצלחה. כעת ניתן להתחבר עם הסיסמה החדשה." });
+        }
+
         // ---------- Logged-in user ----------
 
         // GET api/users/me - shows the claims inside my own token (handy for debugging)
         [HttpGet("me")]
         public IActionResult Me() => Ok(User.Claims.Select(c => new { c.Type, c.Value }));
+
+        // POST api/users/change-password
+        [HttpPost("change-password")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
+        {
+            await _userService.ChangePasswordAsync(User.GetUserId(), dto);
+            return Ok(new { message = "הסיסמה עודכנה בהצלחה." });
+        }
 
         // POST api/users/become-owner - creates the profile and returns a NEW token that contains ownerId
         [HttpPost("become-owner")]

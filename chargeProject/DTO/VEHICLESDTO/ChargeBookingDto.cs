@@ -21,8 +21,22 @@ namespace DTO.VEHICLESDTO
         public DateTime CreatedAt { get; set; }
         public bool HasReview { get; set; }
 
-        /// <summary>מחושב: מתי פג השריון (רק כשהסטטוס Held). אין setter ולכן AutoMapper מתעלם.</summary>
-        //.public DateTime? HoldExpiresAt =>
-            //Status == BookingStatuses.Held ? CreatedAt.AddMinutes(BookingRules.HoldMinutes) : null;
+        /// <summary>מחושב דינמית: מתי פג השריון (רק כשהסטטוס Held). אין setter ולכן AutoMapper מתעלם.</summary>
+        public DateTime? HoldExpiresAt
+        {
+            get
+            {
+                if (Status != BookingStatuses.Held)
+                    return null;
+
+                if (EstimatedArrivalTime > CreatedAt &&
+                    EstimatedArrivalTime <= CreatedAt.AddMinutes(BookingRules.MaxHoldMinutes))
+                {
+                    return EstimatedArrivalTime;
+                }
+
+                return CreatedAt.AddMinutes(BookingRules.HoldMinutes);
+            }
+        }
     }
 }

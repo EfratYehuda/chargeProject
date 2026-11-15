@@ -6,26 +6,43 @@ using DTO; // UserRoles
 using DTO.USERDTO;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using MyApp.BLL.Services;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Net;
+using System.Net.Mail;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace BLL.Services
 {
     public class UserService : IUserService
     {
+        private sealed record PasswordResetEntry(string Code, DateTime ExpiresAtUtc, int FailedAttempts);
+
+        private static readonly ConcurrentDictionary<string, PasswordResetEntry> _resetCodes = new();
+
         private readonly InterfaceUser _user;
         private readonly IMapper _mapper;
         private readonly ITokenService _tokens;
         private readonly IPasswordHasher<Users> _hasher;
+        private readonly IConfiguration _config;
 
-        public UserService(InterfaceUser userRepo, IMapper mapper, IPasswordHasher<Users> hasher, ITokenService tokens)
+        public UserService(
+            InterfaceUser userRepo,
+            IMapper mapper,
+            IPasswordHasher<Users> hasher,
+            ITokenService tokens,
+            IConfiguration config)
         {
             _tokens = tokens;
             _user = userRepo;
             _mapper = mapper;
             _hasher = hasher;
+            _config = config;
         }
 
         // Wrong email and wrong password both return null, so the client cannot tell which one was wrong.
@@ -110,6 +127,86 @@ namespace BLL.Services
             return _mapper.Map<UserProfileDto>(updatedEntity);
         }
 
+        public async Task ChangePasswordAsync(int userId, ChangePasswordDto dto)
+        {
+            var user = await _user.GetByIdAsync(userId)
+                ?? throw new NotFoundException("המשתמש לא נמצא");
+
+            var verification = _hasher.VerifyHashedPassword(user, user.PasswordHash, dto.CurrentPassword);
+            if (verification == PasswordVerificationResult.Failed)
+                throw new BusinessRuleException("הסיסמה הנוכחית שגויה");
+
+            if (dto.CurrentPassword == dto.NewPassword)
+                throw new BusinessRuleException("הסיסמה החדשה חייבת להיות שונה מהסיסמה הנוכחית");
+
+            user.PasswordHash = _hasher.HashPassword(user, dto.NewPassword);
+            await _user.UpdateAsync(user);
+        }
+
+        public async Task<ForgotPasswordResultDto> ForgotPasswordAsync(ForgotPasswordRequestDto dto)
+        {
+            CleanupExpiredCodes();
+
+            var email = dto.Email.Trim().ToLowerInvariant();
+            var user = await _user.GetByEmailAsync(email);
+            if (user is null)
+            {
+                return new ForgotPasswordResultDto { SentViaEmail = false, DevCode = null };
+            }
+
+            var code = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
+            _resetCodes[email] = new PasswordResetEntry(code, DateTime.UtcNow.AddMinutes(15), 0);
+
+            var sentViaEmail = await TrySendResetCodeEmailAsync(email, user.Name, code);
+
+            return new ForgotPasswordResultDto
+            {
+                SentViaEmail = sentViaEmail,
+                DevCode = sentViaEmail ? null : code
+            };
+        }
+
+        public async Task ResetPasswordAsync(ResetPasswordDto dto)
+        {
+            CleanupExpiredCodes();
+
+            var email = dto.Email.Trim().ToLowerInvariant();
+            if (!_resetCodes.TryGetValue(email, out var entry))
+                throw new BusinessRuleException("קוד האיפוס אינו תקף או שפג תוקפו");
+
+            if (entry.ExpiresAtUtc <= DateTime.UtcNow)
+            {
+                _resetCodes.TryRemove(email, out _);
+                throw new BusinessRuleException("קוד האיפוס פג תוקף, יש לבקש קוד חדש");
+            }
+
+            var incomingCode = dto.Code.Trim();
+            var matches = incomingCode.Length == entry.Code.Length &&
+                CryptographicOperations.FixedTimeEquals(
+                    Encoding.UTF8.GetBytes(incomingCode),
+                    Encoding.UTF8.GetBytes(entry.Code));
+
+            if (!matches)
+            {
+                var nextAttempts = entry.FailedAttempts + 1;
+                if (nextAttempts >= 5)
+                {
+                    _resetCodes.TryRemove(email, out _);
+                    throw new BusinessRuleException("בוצעו יותר מדי ניסיונות שגויים. יש לבקש קוד חדש.");
+                }
+
+                _resetCodes[email] = entry with { FailedAttempts = nextAttempts };
+                throw new BusinessRuleException("קוד האיפוס שגוי");
+            }
+
+            var user = await _user.GetByEmailAsync(email)
+                ?? throw new NotFoundException("המשתמש לא נמצא");
+
+            user.PasswordHash = _hasher.HashPassword(user, dto.NewPassword);
+            await _user.UpdateAsync(user);
+            _resetCodes.TryRemove(email, out _);
+        }
+
         public async Task DeleteAsync(int id)
         {
             if (!await _user.DeleteAsync(id))
@@ -147,6 +244,45 @@ namespace BLL.Services
             }
 
             return _tokens.CreateToken(user);
+        }
+
+        private static void CleanupExpiredCodes()
+        {
+            var now = DateTime.UtcNow;
+            foreach (var kvp in _resetCodes)
+            {
+                if (kvp.Value.ExpiresAtUtc <= now)
+                    _resetCodes.TryRemove(kvp.Key, out _);
+            }
+        }
+
+        private async Task<bool> TrySendResetCodeEmailAsync(string toEmail, string userName, string code)
+        {
+            var host = _config["Smtp:Host"];
+            var user = _config["Smtp:User"];
+            var pass = _config["Smtp:Password"];
+
+            if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(pass))
+                return false;
+
+            var port = int.TryParse(_config["Smtp:Port"], out var p) && p > 0 ? p : 587;
+            var from = string.IsNullOrWhiteSpace(_config["Smtp:From"]) ? user : _config["Smtp:From"]!;
+
+            using var client = new SmtpClient(host, port)
+            {
+                EnableSsl = true,
+                Credentials = new NetworkCredential(user, pass),
+                Timeout = 10000
+            };
+
+            using var message = new MailMessage(from, toEmail)
+            {
+                Subject = "קוד לאיפוס סיסמה - Smart EV",
+                Body = $"שלום {userName},\n\nקוד האיפוס שלך הוא: {code}\nהקוד תקף למשך 15 דקות.\n\nאם לא ביקשת לאפס סיסמה, ניתן להתעלם מהודעה זו."
+            };
+
+            await client.SendMailAsync(message);
+            return true;
         }
     }
 }

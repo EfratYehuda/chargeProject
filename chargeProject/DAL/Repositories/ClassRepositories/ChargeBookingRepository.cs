@@ -70,10 +70,18 @@ namespace DAL.Repositories.ClassRepositories
                 .AnyAsync(b => b.VehicleId == vehicleId && activeStatuses.Contains(b.Status));
         }
 
-        public async Task<List<ChargeBooking>> GetStaleHoldsAsync(DateTime threshold)
+        public async Task<List<ChargeBooking>> GetStaleHoldsAsync(DateTime now)
         {
+            var fallbackThreshold = now.AddMinutes(-DTO.BookingRules.HoldMinutes);
+            var maxAgeThreshold = now.AddMinutes(-DTO.BookingRules.MaxHoldMinutes);
+
             return await _context.Set<ChargeBooking>()
-                .Where(b => b.Status == DTO.BookingStatuses.Held && b.CreatedAt <= threshold)
+                .Where(b => b.Status == DTO.BookingStatuses.Held &&
+                    (
+                        (b.EstimatedArrivalTime > b.CreatedAt && (b.EstimatedArrivalTime <= now || b.CreatedAt <= maxAgeThreshold))
+                        ||
+                        (b.EstimatedArrivalTime <= b.CreatedAt && b.CreatedAt <= fallbackThreshold)
+                    ))
                 .ToListAsync();
         }
 

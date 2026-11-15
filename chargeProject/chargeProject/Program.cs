@@ -1,12 +1,13 @@
+using BLL.Agent;
 using BLL.Mapper;
 using BLL.Services;
-using BLL.Agent; // נוסף כדי לזהות את הכלים
 using chargeProject.Middleware;
 using DAL.Classes;
 using DAL.Data;
 using DAL.Repositories.ClassRepositories;
 using DAL.Repositories.IRepositories;
 using DTO;
+using Google.GenAI;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -14,26 +15,17 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
-using OpenAI;
-using System.ClientModel;
 using MyApp.BLL.Services;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --------- AI Agent ---------
+// --------- AI Agent (Official Google.GenAI SDK) ---------
 var apiKey = builder.Configuration["GEMINI:APIKEY"]
     ?? throw new InvalidOperationException("Gemini:ApiKey is missing");
 
-// הכתובת של Gemini שמדברת בפורמט של OpenAI
-var openAiOptions = new OpenAIClientOptions
-{
-    Endpoint = new Uri("https://generativelanguage.googleapis.com/v1beta/openai/")
-};
-
-IChatClient innerClient = new OpenAIClient(new ApiKeyCredential(apiKey), openAiOptions)
-    .GetChatClient("gemini-3.8-flash")
-    .AsIChatClient();
+var geminiClient = new Client(apiKey: apiKey);
+IChatClient innerClient = geminiClient.AsIChatClient("gemini-3.5-flash");
 
 builder.Services.AddChatClient(innerClient)
     .UseFunctionInvocation();   // מריץ את הכלים שהמודל מבקש
@@ -221,7 +213,6 @@ if (!app.Environment.IsDevelopment())
 app.UseCors("AllowReactDev");
 
 app.UseAuthentication();
-
 
 app.UseAuthorization();
 
