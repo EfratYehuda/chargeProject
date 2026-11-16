@@ -250,8 +250,12 @@ app.UseAuthentication();
 
 
 app.UseAuthorization();
+//בשביל לראות את האתר רץ בשרת בלי שגיאה 401
+app.MapGet("/", () => "ChargeFlow API is running!").AllowAnonymous();
 
+app.MapControllers();
 
+app.Run();
 app.MapControllers();
 
 
