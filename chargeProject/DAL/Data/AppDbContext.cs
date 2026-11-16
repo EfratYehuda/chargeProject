@@ -30,6 +30,16 @@ namespace DAL.Data
             {
                 fk.DeleteBehavior = DeleteBehavior.Restrict;
             }
+            // הגבלת אורך לסטטוס - חובה כדי שהמסד יוכל לסנן לפיו באינדקס
+            modelBuilder.Entity<ChargeBooking>()
+                .Property(b => b.Status)
+                .HasMaxLength(50);
+
+            // חוק סנכרון: רק הזמנה פעילה אחת לכל תחנה
+            modelBuilder.Entity<ChargeBooking>()
+                .HasIndex(b => b.StationId).IsUnique()
+                .HasFilter("[Status] IN ('Held', 'Confirmed', 'Charging')")
+                .HasDatabaseName("IX_OneActiveBookingPerStation");
         }
 
     }

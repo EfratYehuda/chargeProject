@@ -29,6 +29,9 @@ namespace chargeProject.Middleware
                 UnauthorizedAccessException => (StatusCodes.Status403Forbidden, "Forbidden", exception.Message),
 
                 // Database: unique index, foreign key, concurrency. Never show the database message.
+                //  שומר על יחודיות השריון עמדת טעינה Two drivers tried to take the same station at the same moment (unique index IX_OneActiveBookingPerStation)
+                DbUpdateException e when e.InnerException?.Message.Contains("IX_OneActiveBookingPerStation") == true
+                    => (StatusCodes.Status409Conflict, "Conflict", "העמדה נתפסה זה עתה על ידי נהג אחר. נסה עמדה אחרת."),
                 DbUpdateException => (StatusCodes.Status409Conflict, "Conflict", "The change conflicts with existing data."),
 
                 // Anything else is a bug: log everything, tell the client nothing.

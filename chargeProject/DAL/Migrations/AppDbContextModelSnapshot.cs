@@ -47,7 +47,8 @@ namespace DAL.Migrations
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<double>("TargetBatteryPercent")
                         .HasColumnType("float");
@@ -59,7 +60,10 @@ namespace DAL.Migrations
 
                     b.HasIndex("DriverId");
 
-                    b.HasIndex("StationId");
+                    b.HasIndex("StationId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_OneActiveBookingPerStation")
+                        .HasFilter("[Status] IN ('Held', 'Confirmed', 'Charging')");
 
                     b.HasIndex("VehicleId");
 

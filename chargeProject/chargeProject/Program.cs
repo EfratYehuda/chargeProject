@@ -179,6 +179,8 @@ builder.Services.AddScoped<IOwnersService, OwnersService>();
 builder.Services.AddScoped<IUsersVehiclesService, UsersVehiclesService>();
 builder.Services.AddScoped<IChargingStationsService, ChargingStationsService>();
 builder.Services.AddScoped<IChargeBookingService, ChargeBookingService>();
+//הפעלת הקובץ ריצה שבודק כל דקה האם קיימות עמדות שצריך לששחרר
+builder.Services.AddHostedService<chargeProject.BackgroundServices.ExpireHoldsService>();
 builder.Services.AddScoped<IReviewsToChargeService, ReviewsToChargeService>();
 builder.Services.AddScoped<IStationStatusLogsService, StationStatusLogsService>();
 builder.Services.AddScoped<IPasswordHasher<Users>, PasswordHasher<Users>>();
@@ -197,6 +199,7 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.Migrate();   // בונה או מעדכן את הטבלאות במסד אם חסר משהו
         var adminEmails = (app.Configuration.GetSection("AdminEmails").Get<string[]>() ?? Array.Empty<string>())
             .Where(e => !string.IsNullOrWhiteSpace(e))
             .Select(e => e.Trim().ToLowerInvariant())
