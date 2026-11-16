@@ -37,6 +37,7 @@ namespace BLL.Services
 
         public async Task<List<ChargeBookingDto>> GetAllAsync()
         {
+            await ExpireStaleHoldsAsync();
             var entities = await _bookingRepo.GetAllAsync();
             return _mapper.Map<List<ChargeBookingDto>>(entities);
         }
@@ -56,18 +57,21 @@ namespace BLL.Services
 
         public async Task<List<ChargeBookingDto>> GetByDriverIdAsync(int driverId)
         {
+            await ExpireStaleHoldsAsync();
             var entities = await _bookingRepo.GetByDriverIdAsync(driverId);
             return _mapper.Map<List<ChargeBookingDto>>(entities);
         }
 
         public async Task<List<ChargeBookingDto>> GetByStationIdAsync(int stationId)
         {
+            await ExpireStaleHoldsAsync();
             var entities = await _bookingRepo.GetByStationIdAsync(stationId);
             return _mapper.Map<List<ChargeBookingDto>>(entities);
         }
 
         public async Task<List<ChargeBookingDto>> GetByOwnerIdAsync(int ownerId)
         {
+            await ExpireStaleHoldsAsync();
             var entities = await _bookingRepo.GetByOwnerIdAsync(ownerId);
             return _mapper.Map<List<ChargeBookingDto>>(entities);
         }
@@ -75,6 +79,7 @@ namespace BLL.Services
         public async Task<ChargeBookingDto> AddAsync(int driverId, CreateChargeBookingDto dto)
         {
             ValidateBattery(dto);
+            await ExpireStaleHoldsAsync();
 
             var station = await _bookingRepo.GetStationByIdAsync(dto.StationId)
                 ?? throw new NotFoundException("העמדה לא נמצאה");
@@ -89,10 +94,12 @@ namespace BLL.Services
             if (await _bookingRepo.HasActiveBookingAsync(dto.VehicleId, ActiveStatuses))
                 throw new ConflictException("לרכב כבר קיימת הזמנה פעילה");
 
+            var now = DateTime.Now;
             var entity = _mapper.Map<ChargeBooking>(dto);
             entity.DriverId = driverId;   // from the token, not from the client
             entity.Status = BookingStatuses.Held;
-            entity.CreatedAt = DateTime.Now;
+            entity.CreatedAt = now;
+            entity.EstimatedArrivalTime = NormalizeEstimatedArrivalTime(now, dto.EstimatedArrivalTime);
 
             var savedEntity = await _bookingRepo.AddAsync(entity);
 
@@ -113,7 +120,7 @@ namespace BLL.Services
 
             entity.CurrentBatteryPercent = dto.CurrentBatteryPercent;
             entity.TargetBatteryPercent = dto.TargetBatteryPercent;
-            entity.EstimatedArrivalTime = dto.EstimatedArrivalTime;
+            entity.EstimatedArrivalTime = NormalizeEstimatedArrivalTime(entity.CreatedAt, dto.EstimatedArrivalTime);
 
             var updatedEntity = await _bookingRepo.UpdateAsync(entity);
             return _mapper.Map<ChargeBookingDto>(updatedEntity);
@@ -129,10 +136,14 @@ namespace BLL.Services
             if (!AllowedTransitions.TryGetValue(entity.Status, out var allowed) || !allowed.Contains(status))
                 throw new ConflictException($"לא ניתן לעבור מסטטוס {entity.Status} לסטטוס {status}");
 
-            // A hold that is older than HoldMinutes cannot be confirmed any more.
+            // שריון שזמנו הדינמי פג לא ניתן יותר לאישור
             if (entity.Status == BookingStatuses.Held && status == BookingStatuses.Confirmed
-                && entity.CreatedAt <= DateTime.Now.AddMinutes(-BookingRules.HoldMinutes))
+                && DateTime.Now >= GetHoldExpiration(entity))
+            {
+                entity.Status = BookingStatuses.Expired;
+                await _bookingRepo.UpdateAsync(entity);
                 throw new ConflictException("השריון פג תוקף");
+            }
 
             entity.Status = status;
             var updatedEntity = await _bookingRepo.UpdateAsync(entity);
@@ -147,8 +158,10 @@ namespace BLL.Services
 
         public async Task<int> ExpireStaleHoldsAsync()
         {
-            var threshold = DateTime.Now.AddMinutes(-BookingRules.HoldMinutes);
-            var staleBookings = await _bookingRepo.GetStaleHoldsAsync(threshold);
+            var staleBookings = await _bookingRepo.GetStaleHoldsAsync(DateTime.Now);
+
+            if (staleBookings.Count == 0)
+                return 0;
 
             foreach (var booking in staleBookings)
             {
@@ -167,6 +180,32 @@ namespace BLL.Services
         {
             if (dto.TargetBatteryPercent <= dto.CurrentBatteryPercent)
                 throw new BusinessRuleException("אחוז הסוללה המבוקש חייב להיות גבוה מהנוכחי");
+        }
+
+        private static DateTime NormalizeEstimatedArrivalTime(DateTime createdAt, DateTime rawEstimatedArrivalTime)
+        {
+            var localEta = rawEstimatedArrivalTime.Kind == DateTimeKind.Utc
+                ? rawEstimatedArrivalTime.ToLocalTime()
+                : DateTime.SpecifyKind(rawEstimatedArrivalTime, DateTimeKind.Unspecified);
+
+            var diffMinutes = (localEta - createdAt).TotalMinutes;
+
+            if (diffMinutes < 1)
+                return createdAt.AddMinutes(BookingRules.HoldMinutes);
+
+            var clampedMinutes = Math.Clamp(diffMinutes, BookingRules.MinHoldMinutes, BookingRules.MaxHoldMinutes);
+            return createdAt.AddMinutes(clampedMinutes);
+        }
+
+        private static DateTime GetHoldExpiration(ChargeBooking entity)
+        {
+            if (entity.EstimatedArrivalTime > entity.CreatedAt &&
+                entity.EstimatedArrivalTime <= entity.CreatedAt.AddMinutes(BookingRules.MaxHoldMinutes))
+            {
+                return entity.EstimatedArrivalTime;
+            }
+
+            return entity.CreatedAt.AddMinutes(BookingRules.HoldMinutes);
         }
     }
 }

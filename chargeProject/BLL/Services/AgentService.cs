@@ -19,7 +19,6 @@ namespace BLL.Services
             כתוב טקסט נקי וברור ללא סימני עיצוב כמו כוכביות (אל תכתוב ** סביב מילים).
             תפקידך לסייע לנהגים ברכב חשמלי למצוא את עמדת ההטענה האופטימלית ביותר עבורם לפי העדפותיהם, מיקומם ואילוצי הזמן שלהם.
 
-
             הנחיות פעולה מחייבות:
             1. איסור מוחלט על המצאת עמדות (Anti-Hallucination):
                אל תמציא עמדות, כתובות או נתונים שלא קיימים! כל עמדה שתוצג למשתמש חייבת להגיע אך ורק מתוצאות הכלים SearchStationsAsync, FindBestStationsAsync או GetStationDetailsAsync. אם לא נמצאה עמדה, ציין זאת בנימוס והצע לחפש באזור סמוך.
@@ -52,7 +51,6 @@ namespace BLL.Services
             _stationTools = stationTools;
             _locationTools = locationTools;
         }
-
 
         private ChatOptions BuildOptions() => new ChatOptions
         {

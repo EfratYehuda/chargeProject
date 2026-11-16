@@ -19,6 +19,9 @@ namespace BLL.Services
         Task<bool> EmailExistsAsync(string email);
         Task<UserProfileDto> AddAsync(RegisterRequestDto dto);
         Task<UserProfileDto> UpdateAsync(int id, UpdateUserProfileDto dto);
+        Task ChangePasswordAsync(int userId, ChangePasswordDto dto);
+        Task<ForgotPasswordResultDto> ForgotPasswordAsync(ForgotPasswordRequestDto dto);
+        Task ResetPasswordAsync(ResetPasswordDto dto);
         Task DeleteAsync(int id);
     }
 }

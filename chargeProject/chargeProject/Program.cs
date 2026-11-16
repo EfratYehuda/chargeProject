@@ -21,15 +21,12 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-
 // --------- AI Agent (Official Google.GenAI SDK) ---------
 var apiKey = builder.Configuration["GEMINI:APIKEY"]
     ?? throw new InvalidOperationException("Gemini:ApiKey is missing");
 
-
 var geminiClient = new Client(apiKey: apiKey);
 IChatClient innerClient = geminiClient.AsIChatClient("gemini-3.5-flash");
-
 
 builder.Services.AddChatClient(innerClient)
     .UseFunctionInvocation();   // מריץ את הכלים שהמודל מבקש
@@ -250,7 +247,6 @@ app.UseCors("AllowReactDev");
 
 
 app.UseAuthentication();
-
 
 app.UseAuthorization();
 //בשביל לראות את האתר רץ בשרת בלי שגיאה 401

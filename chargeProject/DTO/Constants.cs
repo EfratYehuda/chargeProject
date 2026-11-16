@@ -6,7 +6,7 @@ namespace DTO
 {
     public static class BookingStatuses
     {
-        public const string Held = "Held";           // שריון זמני (15 דקות)
+        public const string Held = "Held";           // שריון זמני דינמי (לפי מרחק + מרווח ביטחון)
         public const string Confirmed = "Confirmed";
         public const string Charging = "Charging";
         public const string Completed = "Completed";
@@ -18,7 +18,10 @@ namespace DTO
     /// <summary>חוקים עסקיים של הזמנות</summary>
     public static class BookingRules
     {
-        public const int HoldMinutes = 15;
+        public const int HoldMinutes = 15;       // ברירת מחדל / fallback
+        public const int MinHoldMinutes = 10;    // מינימום שריון דינמי
+        public const int MaxHoldMinutes = 30;    // מקסימום שריון דינמי
+        public const int HoldBufferMinutes = 5;  // מרווח ביטחון
     }
 
     /// <summary>סטטוסים אפשריים של עמדה (בלוג הסטטוסים)</summary>

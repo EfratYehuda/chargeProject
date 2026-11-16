@@ -13,12 +13,10 @@ namespace chargeProject.Controllers
     {
         private readonly IAgentService _agentService;
 
-
         public chatController(IAgentService agentService)
         {
             _agentService = agentService;
         }
-
 
         [HttpPost("stream")]
         public async Task Stream(ChatRequestDto dto, CancellationToken ct)
@@ -34,11 +32,9 @@ namespace chargeProject.Controllers
                 var answer = await _agentService.AskAsync(dto.Messages, ct);
                 Console.WriteLine($"[AI] 3. Got answer ({answer?.Length ?? 0} chars)");
 
-
                 var json = JsonSerializer.Serialize(new { text = answer ?? string.Empty });
                 await Response.WriteAsync($"data: {json}\n\n", ct);
                 await Response.Body.FlushAsync(ct);
-
 
                 await Response.WriteAsync("data: [DONE]\n\n", ct);
             }
