@@ -256,7 +256,3 @@ app.MapGet("/", () => "ChargeFlow API is running!").AllowAnonymous();
 app.MapControllers();
 
 app.Run();
-app.MapControllers();
-
-
-app.Run();
