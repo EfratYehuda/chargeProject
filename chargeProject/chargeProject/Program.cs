@@ -18,6 +18,7 @@ using Microsoft.OpenApi;
 using MyApp.BLL.Services;
 using System.Text;
 
+
 var builder = WebApplication.CreateBuilder(args);
 
 // --------- AI Agent (Official Google.GenAI SDK) ---------
@@ -30,11 +31,14 @@ IChatClient innerClient = geminiClient.AsIChatClient("gemini-3.5-flash");
 builder.Services.AddChatClient(innerClient)
     .UseFunctionInvocation();   // מריץ את הכלים שהמודל מבקש
 
+
 builder.Services.AddScoped<IAgentService, AgentService>();
+
 
 // --- רישום כלי ה-AI (חלק ב' של הפרויקט) ---
 // 1. כלי מסד הנתונים
 builder.Services.AddScoped<StationTools>();
+
 
 // 2. כלי ה-API החיצוני למיקומים עם HttpClient
 builder.Services.AddHttpClient<LocationTools>(client =>
@@ -46,8 +50,10 @@ builder.Services.AddHttpClient<LocationTools>(client =>
 });
 // ----------------------------------------
 
+
 // Add services to the container.
 builder.Services.AddControllers();
+
 
 builder.Services.AddCors(options =>
 {
@@ -60,19 +66,23 @@ builder.Services.AddCors(options =>
     });
 });
 
+
 // טיפול מרכזי בשגיאות
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
+
 
 // סוואגר עם אפשרות להדבקת טוקן
 builder.Services.AddOpenApi(options =>
 {
     options.OpenApiVersion = OpenApiSpecVersion.OpenApi3_0;
 
+
     options.AddDocumentTransformer((document, context, cancellationToken) =>
     {
         document.Components ??= new OpenApiComponents();
         document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
+
 
         document.Components.SecuritySchemes["Bearer"] = new OpenApiSecurityScheme
         {
@@ -82,29 +92,36 @@ builder.Services.AddOpenApi(options =>
             Description = "Paste the token only (without the word Bearer)."
         };
 
+
         document.Security ??= new List<OpenApiSecurityRequirement>();
         document.Security.Add(new OpenApiSecurityRequirement
         {
             [new OpenApiSecuritySchemeReference("Bearer", document)] = new List<string>()
         });
 
+
         return Task.CompletedTask;
     });
 });
 
+
 builder.Services.AddDbContext<DAL.Data.AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+
 builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());
+
 
 var jwtKey = builder.Configuration["Jwt:Key"];
 var jwtIssuer = builder.Configuration["Jwt:Issuer"];
 var jwtAudience = builder.Configuration["Jwt:Audience"];
 
+
 if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32)
     throw new InvalidOperationException("Configuration 'Jwt:Key' is missing or shorter than 32 characters.");
 if (string.IsNullOrWhiteSpace(jwtIssuer) || string.IsNullOrWhiteSpace(jwtAudience))
     throw new InvalidOperationException("Configuration 'Jwt:Issuer' and 'Jwt:Audience' are required.");
+
 
 builder.Services
     .AddAuthentication(options =>
@@ -127,15 +144,18 @@ builder.Services
         };
     });
 
+
 builder.Services.AddAuthorization(options =>
 {
     options.FallbackPolicy = new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
         .Build();
 
+
     options.AddPolicy("Driver", policy => policy.RequireClaim("driverId"));
     options.AddPolicy("Owner", policy => policy.RequireClaim("ownerId"));
 });
+
 
 // Repositories
 builder.Services.AddScoped<InterfaceUser, UserRepository>();
@@ -146,6 +166,7 @@ builder.Services.AddScoped<InterfaceChargingStations, ChargingStationsRepository
 builder.Services.AddScoped<InterfaceChargeBooking, ChargeBookingRepository>();
 builder.Services.AddScoped<InterfaceReviewsToCharge, ReviewsToChargeRepository>();
 builder.Services.AddScoped<InterfaceStationStatusLogs, StationStatusLogsRepository>();
+
 
 // Services
 builder.Services.AddScoped<ITokenService, TokenService>();
@@ -160,9 +181,12 @@ builder.Services.AddScoped<IStationStatusLogsService, StationStatusLogsService>(
 builder.Services.AddScoped<IPasswordHasher<Users>, PasswordHasher<Users>>();
 builder.Services.AddScoped<BLL.Algorithm.StationMatchingAlgorithm>();
 
+
 var app = builder.Build();
 
+
 app.UseExceptionHandler();
+
 
 using (var scope = app.Services.CreateScope())
 {
@@ -174,6 +198,7 @@ using (var scope = app.Services.CreateScope())
             .Where(e => !string.IsNullOrWhiteSpace(e))
             .Select(e => e.Trim().ToLowerInvariant())
             .ToList();
+
 
         foreach (var email in adminEmails)
         {
@@ -187,6 +212,7 @@ using (var scope = app.Services.CreateScope())
             }
         }
 
+
         if (db.ChangeTracker.HasChanges()) db.SaveChanges();
     }
     catch (Exception ex)
@@ -195,9 +221,11 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi().AllowAnonymous();
+
 
     app.UseSwaggerUI(options =>
     {
@@ -205,17 +233,22 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
 
+
 app.UseCors("AllowReactDev");
+
 
 app.UseAuthentication();
 
 app.UseAuthorization();
 
+
 app.MapControllers();
+
 
 app.Run();

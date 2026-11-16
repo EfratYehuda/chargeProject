@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.ClientModel;
 using System.Text.Json;
 
+
 namespace chargeProject.Controllers
 {
     [Route("api/[controller]")]
@@ -23,6 +24,7 @@ namespace chargeProject.Controllers
             Console.WriteLine($"[AI] 1. Request arrived ({dto.Messages.Count} messages)");
             Response.ContentType = "text/event-stream";
             Response.Headers.CacheControl = "no-cache";
+
 
             try
             {

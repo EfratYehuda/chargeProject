@@ -7,11 +7,13 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
+
 namespace BLL.Services
 {
     public class AgentService : IAgentService
     {
-        private const string SystemPrompt = """
+        private const string SystemPrompt =
+"""
             אתה יועץ ועוזר אישי חכם ומומחה לאיתור עמדות הטענה לרכב חשמלי.
             ענה תמיד בעברית בלבד, בסבר פנים יפות, באדיבות, בקצרה ובאופן מקצועי וממוקד.
             כתוב טקסט נקי וברור ללא סימני עיצוב כמו כוכביות (אל תכתוב ** סביב מילים).
@@ -34,9 +36,11 @@ namespace BLL.Services
                החלף את ID במזהה המספרי האמיתי מהכלי ואת שם העמדה בשם האמיתי מהכלי.
             """;
 
+
         private readonly IChatClient _chatClient;
         private readonly StationTools _stationTools;
         private readonly LocationTools _locationTools;
+
 
         public AgentService(
             IChatClient chatClient,
@@ -60,12 +64,14 @@ namespace BLL.Services
             }
         };
 
+
         private List<ChatMessage> BuildMessages(List<ChatMessageDto> history)
         {
             var messages = new List<ChatMessage>
             {
                 new ChatMessage(ChatRole.System, SystemPrompt)
             };
+
 
             foreach (var m in history)
             {
@@ -75,6 +81,7 @@ namespace BLL.Services
             return messages;
         }
 
+
         public async Task<string> AskAsync(List<ChatMessageDto> history, CancellationToken ct)
         {
             var response = await _chatClient.GetResponseAsync(
@@ -83,8 +90,10 @@ namespace BLL.Services
                 cancellationToken: ct
             );
 
+
             return response.Text;
         }
+
 
         public async IAsyncEnumerable<string> AskStreamingAsync(
             List<ChatMessageDto> history,
@@ -95,6 +104,7 @@ namespace BLL.Services
                 BuildOptions(),
                 cancellationToken: ct
             );
+
 
             await foreach (var update in updates)
             {
