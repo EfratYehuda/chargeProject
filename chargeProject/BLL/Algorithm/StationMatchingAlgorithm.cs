@@ -1,11 +1,12 @@
-﻿using DTO.STATIONDTO;
+﻿using DTO;
+using DTO.STATIONDTO;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace BLL.Algorithm
 {
-    public class StationMatchingAlgorithm
+    public partial class StationMatchingAlgorithm
     {
         public List<RankedStationResultDto> RankStations(
             List<StationDto> stations,
@@ -13,8 +14,10 @@ namespace BLL.Algorithm
         {
             var results = new List<RankedStationResultDto>();
 
-            // הערכת טווח נסיעה נותר: כ-3 ק"מ לכל 1% סוללה
-            double estimatedRangeKm = Math.Max(pref.BatteryPercentage * 3.0, 1.0);
+            // הערכת טווח נסיעה נותר לפי קיבולת הסוללה של הרכב:
+            // (אחוז/100 × קיבולת) = קוט"ש בסוללה, חלקי צריכה לק"מ = ק"מ
+            double currentKwh = pref.BatteryPercentage / 100.0 * pref.BatteryCapacityKwh;
+            double estimatedRangeKm = Math.Max(currentKwh / RouteRules.ConsumptionKwhPerKm, 1.0);
             bool isEmergency = pref.BatteryPercentage <= 10; // האם במצב סוללה קריטית?
 
             foreach (var st in stations)
