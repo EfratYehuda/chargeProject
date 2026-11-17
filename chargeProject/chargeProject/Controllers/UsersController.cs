@@ -49,7 +49,6 @@ namespace chargeProject.Controllers
             var result = await _userService.LoginAsync(dto);
             if (result is null)
                 return Unauthorized("Wrong email or password.");
-
             return Ok(result);
         }
 
@@ -59,7 +58,6 @@ namespace chargeProject.Controllers
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto dto)
         {
             var result = await _userService.ForgotPasswordAsync(dto);
-
             if (!result.SentViaEmail && !string.IsNullOrEmpty(result.DevCode))
             {
                 _logger.LogWarning("Password reset code for {Email}: {Code}", dto.Email, result.DevCode);
@@ -80,7 +78,10 @@ namespace chargeProject.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
         {
-            await _userService.ResetPasswordAsync(dto);
+            var error = await _userService.ResetPasswordAsync(dto);
+            if (error != null)
+                return BadRequest(new { detail = error });
+
             return Ok(new { message = "הסיסמה אופסה בהצלחה. כעת ניתן להתחבר עם הסיסמה החדשה." });
         }
 

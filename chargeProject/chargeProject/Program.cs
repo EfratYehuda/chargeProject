@@ -18,42 +18,33 @@ using Microsoft.OpenApi;
 using MyApp.BLL.Services;
 using System.Text;
 
-
 var builder = WebApplication.CreateBuilder(args);
 
 // --------- AI Agent (Official Google.GenAI SDK) ---------
 var apiKey = builder.Configuration["GEMINI:APIKEY"]
-    ?? throw new InvalidOperationException("Gemini:ApiKey is missing");
+    ?? throw new InvalidOperationException("GEMINI:APIKEY is missing");
+var geminiModel = builder.Configuration["GEMINI:MODEL"] ?? "gemini-3.5-flash";
 
 var geminiClient = new Client(apiKey: apiKey);
-IChatClient innerClient = geminiClient.AsIChatClient("gemini-3.5-flash");
+IChatClient innerClient = geminiClient.AsIChatClient(geminiModel);
 
 builder.Services.AddChatClient(innerClient)
-    .UseFunctionInvocation();   // מריץ את הכלים שהמודל מבקש
-
+    .UseFunctionInvocation(configure: client => client.MaximumIterationsPerRequest = 4);
 
 builder.Services.AddScoped<IAgentService, AgentService>();
 
-
-// --- רישום כלי ה-AI (חלק ב' של הפרויקט) ---
-// 1. כלי מסד הנתונים
+// --- כלי ה-AI ---
 builder.Services.AddScoped<StationTools>();
 
-
-// 2. כלי ה-API החיצוני למיקומים עם HttpClient
 builder.Services.AddHttpClient<LocationTools>(client =>
 {
     client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
-    // OpenStreetMap מחייב User-Agent תקין
     client.DefaultRequestHeaders.Add("User-Agent", "ChargeProjectApp/1.0");
     client.Timeout = TimeSpan.FromSeconds(10);
 });
 // ----------------------------------------
 
-
-// Add services to the container.
 builder.Services.AddControllers();
-
 
 builder.Services.AddCors(options =>
 {
@@ -66,23 +57,19 @@ builder.Services.AddCors(options =>
     });
 });
 
-
-// טיפול מרכזי בשגיאות
+// תפיסת שגיאות גלובלית
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
-
-// סוואגר עם אפשרות להדבקת טוקן
+// Swagger / OpenAPI
 builder.Services.AddOpenApi(options =>
 {
     options.OpenApiVersion = OpenApiSpecVersion.OpenApi3_0;
-
 
     options.AddDocumentTransformer((document, context, cancellationToken) =>
     {
         document.Components ??= new OpenApiComponents();
         document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
-
 
         document.Components.SecuritySchemes["Bearer"] = new OpenApiSecurityScheme
         {
@@ -92,36 +79,29 @@ builder.Services.AddOpenApi(options =>
             Description = "Paste the token only (without the word Bearer)."
         };
 
-
         document.Security ??= new List<OpenApiSecurityRequirement>();
         document.Security.Add(new OpenApiSecurityRequirement
         {
             [new OpenApiSecuritySchemeReference("Bearer", document)] = new List<string>()
         });
 
-
         return Task.CompletedTask;
     });
 });
 
-
 builder.Services.AddDbContext<DAL.Data.AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-
 builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());
-
 
 var jwtKey = builder.Configuration["Jwt:Key"];
 var jwtIssuer = builder.Configuration["Jwt:Issuer"];
 var jwtAudience = builder.Configuration["Jwt:Audience"];
 
-
 if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32)
     throw new InvalidOperationException("Configuration 'Jwt:Key' is missing or shorter than 32 characters.");
 if (string.IsNullOrWhiteSpace(jwtIssuer) || string.IsNullOrWhiteSpace(jwtAudience))
     throw new InvalidOperationException("Configuration 'Jwt:Issuer' and 'Jwt:Audience' are required.");
-
 
 builder.Services
     .AddAuthentication(options =>
@@ -144,18 +124,15 @@ builder.Services
         };
     });
 
-
 builder.Services.AddAuthorization(options =>
 {
     options.FallbackPolicy = new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
         .Build();
 
-
     options.AddPolicy("Driver", policy => policy.RequireClaim("driverId"));
     options.AddPolicy("Owner", policy => policy.RequireClaim("ownerId"));
 });
-
 
 // Repositories
 builder.Services.AddScoped<InterfaceUser, UserRepository>();
@@ -167,7 +144,6 @@ builder.Services.AddScoped<InterfaceChargeBooking, ChargeBookingRepository>();
 builder.Services.AddScoped<InterfaceReviewsToCharge, ReviewsToChargeRepository>();
 builder.Services.AddScoped<InterfaceStationStatusLogs, StationStatusLogsRepository>();
 
-
 // Services
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IUserService, UserService>();
@@ -176,19 +152,16 @@ builder.Services.AddScoped<IOwnersService, OwnersService>();
 builder.Services.AddScoped<IUsersVehiclesService, UsersVehiclesService>();
 builder.Services.AddScoped<IChargingStationsService, ChargingStationsService>();
 builder.Services.AddScoped<IChargeBookingService, ChargeBookingService>();
-//הפעלת הקובץ ריצה שבודק כל דקה האם קיימות עמדות שצריך לששחרר
+// שירות רקע לשחרור עמדות שפג תוקף השריון שלהן
 builder.Services.AddHostedService<chargeProject.BackgroundServices.ExpireHoldsService>();
 builder.Services.AddScoped<IReviewsToChargeService, ReviewsToChargeService>();
 builder.Services.AddScoped<IStationStatusLogsService, StationStatusLogsService>();
 builder.Services.AddScoped<IPasswordHasher<Users>, PasswordHasher<Users>>();
 builder.Services.AddScoped<BLL.Algorithm.StationMatchingAlgorithm>();
 
-
 var app = builder.Build();
 
-
 app.UseExceptionHandler();
-
 
 using (var scope = app.Services.CreateScope())
 {
@@ -196,12 +169,11 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        db.Database.Migrate();   // בונה או מעדכן את הטבלאות במסד אם חסר משהו
+        db.Database.Migrate(); // מוודא שהמיגרציות כולל מניעת שריון כפול חלות על המסד
         var adminEmails = (app.Configuration.GetSection("AdminEmails").Get<string[]>() ?? Array.Empty<string>())
             .Where(e => !string.IsNullOrWhiteSpace(e))
             .Select(e => e.Trim().ToLowerInvariant())
             .ToList();
-
 
         foreach (var email in adminEmails)
         {
@@ -214,44 +186,31 @@ using (var scope = app.Services.CreateScope())
                 logger.LogInformation("Promoted {Email} to Admin.", email);
             }
         }
-
-
         if (db.ChangeTracker.HasChanges()) db.SaveChanges();
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "Could not apply AdminEmails at startup. Is the database created and migrated?");
+        logger.LogError(ex, "Could not apply AdminEmails or Migrations at startup.");
     }
 }
-
 
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi().AllowAnonymous();
-
-
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/openapi/v1.json", "v1");
     });
 }
 
-
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
 
-
 app.UseCors("AllowReactDev");
-
-
 app.UseAuthentication();
-
 app.UseAuthorization();
-//בשביל לראות את האתר רץ בשרת בלי שגיאה 401
 app.MapGet("/", () => "ChargeFlow API is running!").AllowAnonymous();
-
 app.MapControllers();
-
 app.Run();
