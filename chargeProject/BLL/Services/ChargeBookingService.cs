@@ -85,19 +85,26 @@ namespace BLL.Services
             var station = await _bookingRepo.GetStationByIdAsync(dto.StationId)
                 ?? throw new NotFoundException("העמדה לא נמצאה");
 
+            if (station.ApprovalStatus != StationApprovalStatuses.Approved)
+                throw new BusinessRuleException("העמדה טרם אושרה על ידי מנהל המערכת");
+
             if (!station.IsActive)
                 throw new BusinessRuleException("העמדה אינה פעילה");
+
+            // A vehicle that is not yours looks exactly like a vehicle that does not exist.
+            var vehicle = await _bookingRepo.GetVehicleByIdAsync(dto.VehicleId);
+            if (vehicle == null || vehicle.DriverId != driverId)
+                throw new NotFoundException("הרכב לא נמצא");
+
+            // מניעת שריון עצמי: בדיקה לפי UserId של בעל העמדה מול UserId של הנהג
+            if (station.Owner != null && vehicle.Driver != null && station.Owner.UserId == vehicle.Driver.UserId)
+                throw new BusinessRuleException("בעל עמדה אינו יכול לשריין את העמדה של עצמו");
 
             var now = DateTime.Now;
             var normalizedArrival = NormalizeEstimatedArrivalTime(now, dto.EstimatedArrivalTime);
             var holdDuration = normalizedArrival - now;
             var israelNow = StationScheduleHelper.GetIsraelNow();
             StationScheduleHelper.ValidateBookingWindow(station.BlockedHours, israelNow, israelNow.Add(holdDuration));
-
-            // A vehicle that is not yours looks exactly like a vehicle that does not exist.
-            var vehicle = await _bookingRepo.GetVehicleByIdAsync(dto.VehicleId);
-            if (vehicle == null || vehicle.DriverId != driverId)
-                throw new NotFoundException("הרכב לא נמצא");
 
             if (await _bookingRepo.HasActiveBookingAsync(dto.VehicleId, ActiveStatuses))
                 throw new ConflictException("לרכב כבר קיימת הזמנה פעילה");

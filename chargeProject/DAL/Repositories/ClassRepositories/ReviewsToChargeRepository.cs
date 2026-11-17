@@ -59,7 +59,6 @@ namespace DAL.Repositories.ClassRepositories
         {
             var entity = await _context.Set<ReviewsToCharge>().FindAsync(id);
             if (entity == null) return false;
-
             _context.Set<ReviewsToCharge>().Remove(entity);
             await _context.SaveChangesAsync();
             return true;
@@ -77,7 +76,11 @@ namespace DAL.Repositories.ClassRepositories
 
         // --- עזרים ---
         public async Task<ChargeBooking?> GetBookingByIdAsync(int bookingId) =>
-            await _context.Set<ChargeBooking>().AsNoTracking().FirstOrDefaultAsync(b => b.Id == bookingId);
+            await _context.Set<ChargeBooking>()
+                .Include(b => b.Station).ThenInclude(s => s.Owner)
+                .Include(b => b.Driver)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(b => b.Id == bookingId);
 
         public async Task<bool> ReviewExistsForBookingAsync(int bookingId) =>
             await _context.Set<ReviewsToCharge>().AnyAsync(r => r.ChargeBookingId == bookingId);

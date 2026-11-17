@@ -82,6 +82,11 @@ namespace DAL.Migrations
                     .IsRequired()
                     .HasColumnType("nvarchar(max)");
 
+                b.Property<string>("ApprovalStatus")
+                    .IsRequired()
+                    .HasMaxLength(20)
+                    .HasColumnType("nvarchar(20)");
+
                 b.Property<string>("BlockedHours")
                     .HasMaxLength(100)
                     .HasColumnType("nvarchar(100)");
@@ -111,6 +116,10 @@ namespace DAL.Migrations
 
                 b.Property<double>("PricePerKwh")
                     .HasColumnType("float");
+
+                b.Property<string>("RejectionReason")
+                    .HasMaxLength(300)
+                    .HasColumnType("nvarchar(300)");
 
                 b.HasKey("Id");
 

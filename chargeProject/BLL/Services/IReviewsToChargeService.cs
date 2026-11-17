@@ -17,5 +17,6 @@ namespace BLL.Services
         // driverId always comes from the token, never from the request body.
         Task<ReviewDto> AddAsync(int driverId, CreateReviewDto dto);
         Task DeleteAsync(int id, int driverId);
+        Task DeleteAsAdminAsync(int id);
     }
 }

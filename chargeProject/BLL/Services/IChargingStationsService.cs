@@ -6,9 +6,11 @@ namespace BLL.Services
 {
     public interface IChargingStationsService
     {
-        // Reads: stations are public data for any logged-in user (drivers search for them).
+        // Reads: stations are public data for any logged-in user (approved only).
         Task<StationDto> GetByIdAsync(int id);
         Task<List<StationDto>> GetAllAsync();
+        Task<List<StationDto>> GetAllForAdminAsync();
+        Task<List<StationDto>> GetPendingForAdminAsync();
         Task<List<StationDto>> GetByOwnerIdAsync(int ownerId);
         Task<List<StationDto>> GetActiveInRadiusAsync(double latitude, double longitude, double radiusKm, string? chargerType);
 
@@ -17,6 +19,7 @@ namespace BLL.Services
         Task<StationDto> UpdateAsync(int id, int ownerId, CreateUpdateStationDto dto);
         Task<StationDto> SetActiveAsync(int id, int ownerId, bool isActive);
         Task<StationDto> UpdateBlockedHoursAsync(int id, int ownerId, List<int> blockedHours);
+        Task<StationDto> ReviewApprovalAsync(int id, ReviewStationApprovalDto dto);
         Task DeleteAsync(int id, int ownerId);
         Task<List<StationDto>> SearchAsync(string? text, int max = 5);
     }

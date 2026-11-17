@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using DTO; // לצורך הגישה ל-StationStatuses. אם הסטטוסים מוגדרים במקום אחר, עדכני את ה-using
 
 namespace DAL.Repositories.ClassRepositories
 {
@@ -27,7 +26,7 @@ namespace DAL.Repositories.ClassRepositories
             await OwnersQuery.FirstOrDefaultAsync(o => o.Id == id);
 
         public async Task<List<Owner>> GetAllAsync() =>
-            await OwnersQuery.ToListAsync();
+            await OwnersQuery.Where(o => o.Stations.Any()).ToListAsync();
 
         public async Task<Owner?> GetByUserIdAsync(int userId) =>
             await OwnersQuery.FirstOrDefaultAsync(o => o.UserId == userId);
@@ -43,7 +42,6 @@ namespace DAL.Repositories.ClassRepositories
         {
             var entity = await _context.Set<Owner>().FindAsync(id);
             if (entity == null) return false;
-
             _context.Set<Owner>().Remove(entity);
             await _context.SaveChangesAsync();
             return true;
@@ -59,11 +57,11 @@ namespace DAL.Repositories.ClassRepositories
             await _context.Set<Owner>().AnyAsync(o => o.UserId == userId);
 
         // --- פונקציות שליפה ייעודיות לדאשבורד ---
-
         public async Task<List<ChargingStations>> GetStationsByOwnerIdAsync(int ownerId) =>
             await _context.Set<ChargingStations>()
-                .Include(s => s.Bookings).ThenInclude(b => b.Review) // לחישוב ממוצע בעמדה
-                .Include(s => s.Logs) // לחישוב סטטוס
+                .Include(s => s.Owner).ThenInclude(o => o.User)
+                .Include(s => s.Bookings).ThenInclude(b => b.Review)
+                .Include(s => s.Logs)
                 .Where(s => s.OwnerId == ownerId)
                 .AsNoTracking()
                 .ToListAsync();

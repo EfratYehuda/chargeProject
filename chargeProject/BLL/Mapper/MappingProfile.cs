@@ -53,6 +53,12 @@ namespace BLL.Mapper
 
             // ---------- Stations ----------
             CreateMap<ChargingStations, StationDto>()
+                .ForMember(d => d.OwnerName, o => o.MapFrom(s =>
+                    s.Owner != null && s.Owner.User != null ? s.Owner.User.Name : null))
+                .ForMember(d => d.OwnerEmail, o => o.MapFrom(s =>
+                    s.Owner != null && s.Owner.User != null ? s.Owner.User.Email : null))
+                .ForMember(d => d.OwnerPhone, o => o.MapFrom(s =>
+                    s.Owner != null && s.Owner.User != null ? s.Owner.User.Phone : null))
                 .ForMember(d => d.BlockedHours, o => o.MapFrom(s =>
                     StationScheduleHelper.ParseBlockedHours(s.BlockedHours)))
                 .ForMember(d => d.IsClosedBySchedule, o => o.MapFrom(s =>
@@ -68,7 +74,9 @@ namespace BLL.Mapper
 
             CreateMap<CreateUpdateStationDto, ChargingStations>()
                 .ForMember(d => d.BlockedHours, o => o.MapFrom(s =>
-                    StationScheduleHelper.SerializeBlockedHours(s.BlockedHours)));
+                    StationScheduleHelper.SerializeBlockedHours(s.BlockedHours)))
+                .ForMember(d => d.ApprovalStatus, o => o.Ignore())
+                .ForMember(d => d.RejectionReason, o => o.Ignore());
 
             // ---------- Bookings ----------
             CreateMap<ChargeBooking, ChargeBookingDto>()
