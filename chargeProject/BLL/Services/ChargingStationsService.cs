@@ -1,7 +1,9 @@
 ﻿using AutoMapper;
+using BLL.Algorithm;
 using BLL.Exceptions;
 using DAL.Classes;
 using DAL.Repositories.IRepositories;
+using DTO;
 using DTO.STATIONDTO;
 using System;
 using System.Collections.Generic;
@@ -13,11 +15,13 @@ namespace BLL.Services
     {
         private readonly InterfaceChargingStations _stationsRepo;
         private readonly IMapper _mapper;
+        private readonly StationMatchingAlgorithm _algorithm;
 
-        public ChargingStationsService(InterfaceChargingStations stationsRepo, IMapper mapper)
+        public ChargingStationsService(InterfaceChargingStations stationsRepo, IMapper mapper, StationMatchingAlgorithm algorithm)
         {
             _stationsRepo = stationsRepo;
             _mapper = mapper;
+            _algorithm = algorithm;
         }
 
         public async Task<StationDto> GetByIdAsync(int id)
@@ -106,6 +110,58 @@ namespace BLL.Services
         {
             var entities = await _stationsRepo.SearchAsync(text, max);
             return _mapper.Map<List<StationDto>>(entities);
+        }
+
+        // ================== המלצות (אלגוריתם) ==================
+
+        private const double MaxSearchRadiusKm = 500; // אותה מגבלה שנבדקת ב-GetActiveInRadiusAsync
+        private const double MinSearchRadiusKm = 30;
+
+        /// <summary>מצב רדיוס: עמדות סביב הנהג, ברדיוס לפי טווח הסוללה</summary>
+        public async Task<List<RankedStationResultDto>> RecommendAsync(DriverPreferenceRequestDto request)
+        {
+            ValidateBatteryInput(request);
+
+            // רדיוס השליפה = טווח הסוללה לפי הרכב (בין 30 ל-500 ק"מ)
+            double currentKwh = request.BatteryPercentage / 100.0 * request.BatteryCapacityKwh;
+            double rangeKm = currentKwh / RouteRules.ConsumptionKwhPerKm;
+            double searchRadius = Math.Clamp(rangeKm, MinSearchRadiusKm, MaxSearchRadiusKm);
+
+            var stations = await GetActiveInRadiusAsync(
+                request.DriverLatitude, request.DriverLongitude, searchRadius, request.RequiredChargerType);
+
+            return _algorithm.RankStations(stations, request);
+        }
+
+        /// <summary>מצב מסלול: איפה הכי משתלם לעצור בדרך מהמוצא ליעד</summary>
+        public async Task<RouteRecommendationResponseDto> RecommendRouteAsync(DriverPreferenceRequestDto request)
+        {
+            ValidateBatteryInput(request);
+
+            if (!request.HasDestination)
+                throw new BusinessRuleException("במצב מסלול חובה לשלוח יעד");
+
+            double dLat = request.DestinationLatitude!.Value, dLon = request.DestinationLongitude!.Value;
+            if (dLat < -90 || dLat > 90 || dLon < -180 || dLon > 180)
+                throw new BusinessRuleException("קואורדינטות היעד לא חוקיות");
+
+            // רשת השליפה: עיגול סביב נקודת האמצע, שמכסה את כל המסלול + שוליים לעקיפה
+            var mid = GeoHelper.Midpoint(request.DriverLatitude, request.DriverLongitude, dLat, dLon);
+            double tripKm = GeoHelper.RoadDistanceKm(request.DriverLatitude, request.DriverLongitude, dLat, dLon);
+            double searchRadius = Math.Clamp(tripKm / 2 + RouteRules.MaxDetourKm, MinSearchRadiusKm, MaxSearchRadiusKm);
+
+            var stations = await GetActiveInRadiusAsync(mid.Lat, mid.Lon, searchRadius, request.RequiredChargerType);
+
+            return _algorithm.RankRouteStops(stations, request);
+        }
+
+        /// <summary>בדיקות קלט משותפות לשני המצבים</summary>
+        private static void ValidateBatteryInput(DriverPreferenceRequestDto request)
+        {
+            if (request.BatteryPercentage < 0 || request.BatteryPercentage > 100)
+                throw new BusinessRuleException("אחוז הסוללה חייב להיות בין 0 ל-100");
+            if (request.BatteryCapacityKwh <= 0 || request.BatteryCapacityKwh > 200)
+                throw new BusinessRuleException("קיבולת הסוללה חייבת להיות בין 0 ל-200 קוט\"ש");
         }
     }
 }

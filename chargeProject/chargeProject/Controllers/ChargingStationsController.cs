@@ -1,5 +1,4 @@
-﻿using BLL.Algorithm; // הוספנו כדי להכיר את האלגוריתם וה-Request
-using BLL.Services;
+﻿using BLL.Services;
 using chargeProject.Extensions;
 using DTO.STATIONDTO;
 using Microsoft.AspNetCore.Authorization;
@@ -21,26 +20,22 @@ namespace chargeProject.Controllers
             _chargingStationsService = chargingStationsService;
         }
 
-        // --- פעולה חדשה לריאקט: קבלת עמדות ממוינות באחוזים לפי צ'ק ליסט העדפות ---
+        // --- המלצה – מצב רדיוס: עמדות סביב הנהג, ממוינות לפי אחוז התאמה ---
         [AllowAnonymous]
         [HttpPost("recommend")]
         public async Task<ActionResult<List<RankedStationResultDto>>> RecommendStations(
-            [FromBody] DriverPreferenceRequestDto request,
-            [FromServices] StationMatchingAlgorithm algorithm)
+            [FromBody] DriverPreferenceRequestDto request)
         {
-            // רדיוס השליפה נקבע דינמית לפי טווח הסוללה (3 ק"מ לכל 1%), בין 30 ל-500 ק"מ
-            double searchRadius = Math.Clamp(request.BatteryPercentage * 3.0, 30, 500);
+            return Ok(await _chargingStationsService.RecommendAsync(request));
+        }
 
-            var stations = await _chargingStationsService.GetActiveInRadiusAsync(
-                request.DriverLatitude,
-                request.DriverLongitude,
-                searchRadius,
-                request.RequiredChargerType);
-
-            // 2. מריץ את האלגוריתם המשקלל
-            var results = algorithm.RankStations(stations, request);
-
-            return Ok(results);
+        // --- המלצה – מצב מסלול: איפה הכי משתלם לעצור בדרך מהמוצא ליעד ---
+        [AllowAnonymous]
+        [HttpPost("recommend-route")]
+        public async Task<ActionResult<RouteRecommendationResponseDto>> RecommendRoute(
+            [FromBody] DriverPreferenceRequestDto request)
+        {
+            return Ok(await _chargingStationsService.RecommendRouteAsync(request));
         }
 
         [HttpGet]

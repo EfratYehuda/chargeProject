@@ -19,5 +19,9 @@ namespace BLL.Services
         Task DeleteAsync(int id, int ownerId);
 
         Task<List<StationDto>> SearchAsync(string? text, int max = 5);
+
+        // המלצות (האלגוריתם): מצב רדיוס – סביב הנהג, ומצב מסלול – עצירה בדרך ליעד
+        Task<List<RankedStationResultDto>> RecommendAsync(DriverPreferenceRequestDto request);
+        Task<RouteRecommendationResponseDto> RecommendRouteAsync(DriverPreferenceRequestDto request);
     }
 }
