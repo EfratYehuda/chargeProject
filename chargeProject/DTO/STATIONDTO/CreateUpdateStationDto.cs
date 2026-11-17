@@ -9,7 +9,6 @@ namespace DTO.STATIONDTO
     public class CreateUpdateStationDto
     {
         // OwnerId was removed: the server takes it from the token (ownerId claim).
-
         [Required, StringLength(100, MinimumLength = 2)]
         public string Name { get; set; } = string.Empty;
 
@@ -32,5 +31,7 @@ namespace DTO.STATIONDTO
         public double PricePerKwh { get; set; }
 
         public bool IsActive { get; set; } = true;
+
+        public List<int> BlockedHours { get; set; } = new();
     }
 }

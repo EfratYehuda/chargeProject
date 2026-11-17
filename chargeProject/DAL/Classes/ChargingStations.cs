@@ -27,6 +27,8 @@ namespace DAL.Classes
         public double PricePerKwh { get; set; }
         [Required]
         public bool IsActive { get; set; }
+        [MaxLength(100)]
+        public string? BlockedHours { get; set; }
 
         public Owner Owner { get; set; } // הבעלים של העמדה
         public List<ChargeBooking> Bookings { get; set; } // הזמנות בעמדה

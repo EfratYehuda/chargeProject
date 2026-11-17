@@ -16,9 +16,11 @@ namespace DTO.STATIONDTO
         public double MaxKw { get; set; }
         public double PricePerKwh { get; set; }
         public bool IsActive { get; set; }
+        public List<int> BlockedHours { get; set; } = new();
+        public bool IsClosedBySchedule { get; set; }
+        public int? NextOpenHour { get; set; }
         public double? AverageRating { get; set; }   // null אם אין ביקורות
         public int ReviewsCount { get; set; }
         public string? CurrentStatus { get; set; }   // הסטטוס האחרון מהלוג
     }
-
 }

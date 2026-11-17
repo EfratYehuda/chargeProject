@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using BLL.Exceptions;
+using BLL.Helpers;
 using DAL.Classes;
 using DAL.Repositories.IRepositories;
 using DTO.STATIONDTO;
@@ -86,8 +87,17 @@ namespace BLL.Services
         public async Task<StationDto> SetActiveAsync(int id, int ownerId, bool isActive)
         {
             var entity = await GetOwnedEntityAsync(id, ownerId);
-
             entity.IsActive = isActive;
+
+            await _stationsRepo.UpdateAsync(entity);
+            return await GetByIdAsync(id);
+        }
+
+        public async Task<StationDto> UpdateBlockedHoursAsync(int id, int ownerId, List<int> blockedHours)
+        {
+            var entity = await GetOwnedEntityAsync(id, ownerId);
+            entity.BlockedHours = StationScheduleHelper.SerializeBlockedHours(blockedHours);
+
             await _stationsRepo.UpdateAsync(entity);
             return await GetByIdAsync(id);
         }

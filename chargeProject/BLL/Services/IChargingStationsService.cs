@@ -16,8 +16,8 @@ namespace BLL.Services
         Task<StationDto> AddAsync(int ownerId, CreateUpdateStationDto dto);
         Task<StationDto> UpdateAsync(int id, int ownerId, CreateUpdateStationDto dto);
         Task<StationDto> SetActiveAsync(int id, int ownerId, bool isActive);
+        Task<StationDto> UpdateBlockedHoursAsync(int id, int ownerId, List<int> blockedHours);
         Task DeleteAsync(int id, int ownerId);
-
         Task<List<StationDto>> SearchAsync(string? text, int max = 5);
     }
 }

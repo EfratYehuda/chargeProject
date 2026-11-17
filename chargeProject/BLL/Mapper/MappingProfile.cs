@@ -1,11 +1,11 @@
 ﻿using AutoMapper;
+using BLL.Helpers;
 using DAL.Classes;
 using DTO;
 using DTO.REVIEWDTO;
 using DTO.STATIONDTO;
 using DTO.USERDTO;
 using DTO.VEHICLESDTO;
-
 
 namespace BLL.Mapper
 {
@@ -21,10 +21,11 @@ namespace BLL.Mapper
             CreateMap<Users, UserProfileDto>()
                 .ForMember(d => d.DriverId, o => o.MapFrom(s => s.DriverProfile != null ? (int?)s.DriverProfile.Id : null))
                 .ForMember(d => d.OwnerId, o => o.MapFrom(s => s.OwnerProfile != null ? (int?)s.OwnerProfile.Id : null));
-     
+
             CreateMap<RegisterRequestDto, Users>()
                 .ForMember(d => d.Access, o => o.MapFrom(s => s.Role))
                 .ForMember(d => d.PasswordHash, o => o.Ignore()); // נקבע ב-Repository מה-hash שהתקבל
+
             CreateMap<UpdateUserProfileDto, Users>();
 
             // ---------- Vehicles ----------
@@ -38,6 +39,7 @@ namespace BLL.Mapper
                 .ForMember(d => d.Phone, o => o.MapFrom(s => s.User.Phone))
                 .ForMember(d => d.TotalBookings, o => o.MapFrom(s => s.Bookings.Count))
                 .ForMember(d => d.Vehicles, o => o.MapFrom(s => s.Vehicles));
+
             CreateMap<CreateDriverDto, Drivers>();
 
             // ---------- Owners ----------
@@ -46,17 +48,27 @@ namespace BLL.Mapper
                 .ForMember(d => d.Email, o => o.MapFrom(s => s.User.Email))
                 .ForMember(d => d.Phone, o => o.MapFrom(s => s.User.Phone))
                 .ForMember(d => d.StationsCount, o => o.MapFrom(s => s.Stations.Count));
+
             CreateMap<CreateOwnerDto, Owner>();
 
             // ---------- Stations ----------
             CreateMap<ChargingStations, StationDto>()
+                .ForMember(d => d.BlockedHours, o => o.MapFrom(s =>
+                    StationScheduleHelper.ParseBlockedHours(s.BlockedHours)))
+                .ForMember(d => d.IsClosedBySchedule, o => o.MapFrom(s =>
+                    StationScheduleHelper.IsClosedNow(s.BlockedHours)))
+                .ForMember(d => d.NextOpenHour, o => o.MapFrom(s =>
+                    StationScheduleHelper.GetNextOpenHour(s.BlockedHours)))
                 .ForMember(d => d.AverageRating, o => o.MapFrom(s =>
                     s.Bookings.Where(b => b.Review != null).Average(b => (double?)b.Review.Rating)))
                 .ForMember(d => d.ReviewsCount, o => o.MapFrom(s =>
                     s.Bookings.Count(b => b.Review != null)))
                 .ForMember(d => d.CurrentStatus, o => o.MapFrom(s =>
                     s.Logs.OrderByDescending(l => l.UpdatedAt).Select(l => l.Status).FirstOrDefault()));
-            CreateMap<CreateUpdateStationDto, ChargingStations>();
+
+            CreateMap<CreateUpdateStationDto, ChargingStations>()
+                .ForMember(d => d.BlockedHours, o => o.MapFrom(s =>
+                    StationScheduleHelper.SerializeBlockedHours(s.BlockedHours)));
 
             // ---------- Bookings ----------
             CreateMap<ChargeBooking, ChargeBookingDto>()
@@ -64,6 +76,7 @@ namespace BLL.Mapper
                 .ForMember(d => d.StationAddress, o => o.MapFrom(s => s.Station.Address))
                 .ForMember(d => d.VehicleModel, o => o.MapFrom(s => s.Vehicle.Model))
                 .ForMember(d => d.HasReview, o => o.MapFrom(s => s.Review != null));
+
             CreateMap<CreateChargeBookingDto, ChargeBooking>();
 
             // ---------- Reviews ----------
@@ -71,14 +84,15 @@ namespace BLL.Mapper
                 .ForMember(d => d.StationId, o => o.MapFrom(s => s.Booking.StationId))
                 .ForMember(d => d.StationName, o => o.MapFrom(s => s.Booking.Station.Name))
                 .ForMember(d => d.DriverName, o => o.MapFrom(s => s.Driver.User.Name));
+
             CreateMap<CreateReviewDto, ReviewsToCharge>();
-            
 
             // ---------- Station status logs ----------
             CreateMap<StationStatusLogs, StationStatusLogDto>()
                 .ForMember(d => d.StationName, o => o.MapFrom(s => s.Station.Name))
                 .ForMember(d => d.CurrentDriverName, o => o.MapFrom(s =>
                     s.CurrentDriver != null ? s.CurrentDriver.User.Name : null));
+
             CreateMap<CreateStationStatusLogDto, StationStatusLogs>();
         }
     }

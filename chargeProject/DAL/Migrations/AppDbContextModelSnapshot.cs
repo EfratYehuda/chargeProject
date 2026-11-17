@@ -23,414 +23,418 @@ namespace DAL.Migrations
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
             modelBuilder.Entity("DAL.Classes.ChargeBooking", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+            {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime>("CreatedAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<double>("CurrentBatteryPercent")
-                        .HasColumnType("float");
+                b.Property<double>("CurrentBatteryPercent")
+                    .HasColumnType("float");
 
-                    b.Property<int>("DriverId")
-                        .HasColumnType("int");
+                b.Property<int>("DriverId")
+                    .HasColumnType("int");
 
-                    b.Property<DateTime>("EstimatedArrivalTime")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime>("EstimatedArrivalTime")
+                    .HasColumnType("datetime2");
 
-                    b.Property<int>("StationId")
-                        .HasColumnType("int");
+                b.Property<int>("StationId")
+                    .HasColumnType("int");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                b.Property<string>("Status")
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
 
-                    b.Property<double>("TargetBatteryPercent")
-                        .HasColumnType("float");
+                b.Property<double>("TargetBatteryPercent")
+                    .HasColumnType("float");
 
-                    b.Property<int>("VehicleId")
-                        .HasColumnType("int");
+                b.Property<int>("VehicleId")
+                    .HasColumnType("int");
 
-                    b.HasKey("Id");
+                b.HasKey("Id");
 
-                    b.HasIndex("DriverId");
+                b.HasIndex("DriverId");
 
-                    b.HasIndex("StationId")
-                        .IsUnique()
-                        .HasDatabaseName("IX_OneActiveBookingPerStation")
-                        .HasFilter("[Status] IN ('Held', 'Confirmed', 'Charging')");
+                b.HasIndex("StationId")
+                    .IsUnique()
+                    .HasDatabaseName("IX_OneActiveBookingPerStation")
+                    .HasFilter("[Status] IN ('Held', 'Confirmed', 'Charging')");
 
-                    b.HasIndex("VehicleId");
+                b.HasIndex("VehicleId");
 
-                    b.ToTable("ChargeBookings");
-                });
+                b.ToTable("ChargeBookings");
+            });
 
             modelBuilder.Entity("DAL.Classes.ChargingStations", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+            {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Address")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                b.Property<string>("Address")
+                    .IsRequired()
+                    .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("ChargerType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                b.Property<string>("BlockedHours")
+                    .HasMaxLength(100)
+                    .HasColumnType("nvarchar(100)");
 
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
+                b.Property<string>("ChargerType")
+                    .IsRequired()
+                    .HasColumnType("nvarchar(max)");
 
-                    b.Property<double>("Latitude")
-                        .HasColumnType("float");
+                b.Property<bool>("IsActive")
+                    .HasColumnType("bit");
 
-                    b.Property<double>("Longitude")
-                        .HasColumnType("float");
+                b.Property<double>("Latitude")
+                    .HasColumnType("float");
 
-                    b.Property<double>("MaxKw")
-                        .HasColumnType("float");
+                b.Property<double>("Longitude")
+                    .HasColumnType("float");
 
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                b.Property<double>("MaxKw")
+                    .HasColumnType("float");
 
-                    b.Property<int>("OwnerId")
-                        .HasColumnType("int");
+                b.Property<string>("Name")
+                    .IsRequired()
+                    .HasColumnType("nvarchar(max)");
 
-                    b.Property<double>("PricePerKwh")
-                        .HasColumnType("float");
+                b.Property<int>("OwnerId")
+                    .HasColumnType("int");
 
-                    b.HasKey("Id");
+                b.Property<double>("PricePerKwh")
+                    .HasColumnType("float");
 
-                    b.HasIndex("OwnerId");
+                b.HasKey("Id");
 
-                    b.ToTable("ChargingStations");
-                });
+                b.HasIndex("OwnerId");
+
+                b.ToTable("ChargingStations");
+            });
 
             modelBuilder.Entity("DAL.Classes.Drivers", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+            {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
+                b.Property<int>("UserId")
+                    .HasColumnType("int");
 
-                    b.HasKey("Id");
+                b.HasKey("Id");
 
-                    b.HasIndex("UserId")
-                        .IsUnique();
+                b.HasIndex("UserId")
+                    .IsUnique();
 
-                    b.ToTable("Drivers");
-                });
+                b.ToTable("Drivers");
+            });
 
             modelBuilder.Entity("DAL.Classes.Owner", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+            {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
+                b.Property<int>("UserId")
+                    .HasColumnType("int");
 
-                    b.HasKey("Id");
+                b.HasKey("Id");
 
-                    b.HasIndex("UserId")
-                        .IsUnique();
+                b.HasIndex("UserId")
+                    .IsUnique();
 
-                    b.ToTable("Owners");
-                });
+                b.ToTable("Owners");
+            });
 
             modelBuilder.Entity("DAL.Classes.ReviewsToCharge", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+            {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("ChargeBookingId")
-                        .HasColumnType("int");
+                b.Property<int>("ChargeBookingId")
+                    .HasColumnType("int");
 
-                    b.Property<string>("Comment")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                b.Property<string>("Comment")
+                    .IsRequired()
+                    .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime>("CreatedAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<int>("DriverId")
-                        .HasColumnType("int");
+                b.Property<int>("DriverId")
+                    .HasColumnType("int");
 
-                    b.Property<double>("Rating")
-                        .HasColumnType("float");
+                b.Property<double>("Rating")
+                    .HasColumnType("float");
 
-                    b.HasKey("Id");
+                b.HasKey("Id");
 
-                    b.HasIndex("ChargeBookingId")
-                        .IsUnique();
+                b.HasIndex("ChargeBookingId")
+                    .IsUnique();
 
-                    b.HasIndex("DriverId");
+                b.HasIndex("DriverId");
 
-                    b.ToTable("ReviewsToCharges");
-                });
+                b.ToTable("ReviewsToCharges");
+            });
 
             modelBuilder.Entity("DAL.Classes.StationStatusLogs", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+            {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("CurrentDriverId")
-                        .HasColumnType("int");
+                b.Property<int?>("CurrentDriverId")
+                    .HasColumnType("int");
 
-                    b.Property<int>("StationId")
-                        .HasColumnType("int");
+                b.Property<int>("StationId")
+                    .HasColumnType("int");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                b.Property<string>("Status")
+                    .IsRequired()
+                    .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime>("UpdatedAt")
+                    .HasColumnType("datetime2");
 
-                    b.HasKey("Id");
+                b.HasKey("Id");
 
-                    b.HasIndex("CurrentDriverId");
+                b.HasIndex("CurrentDriverId");
 
-                    b.HasIndex("StationId");
+                b.HasIndex("StationId");
 
-                    b.ToTable("StationStatusLogs");
-                });
+                b.ToTable("StationStatusLogs");
+            });
 
             modelBuilder.Entity("DAL.Classes.Users", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+            {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Access")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                b.Property<string>("Access")
+                    .IsRequired()
+                    .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                b.Property<string>("Email")
+                    .IsRequired()
+                    .HasMaxLength(100)
+                    .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                b.Property<string>("Name")
+                    .IsRequired()
+                    .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("PasswordHash")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                b.Property<string>("PasswordHash")
+                    .IsRequired()
+                    .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Phone")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                b.Property<string>("Phone")
+                    .IsRequired()
+                    .HasColumnType("nvarchar(max)");
 
-                    b.HasKey("Id");
+                b.HasKey("Id");
 
-                    b.HasIndex("Email")
-                        .IsUnique();
+                b.HasIndex("Email")
+                    .IsUnique();
 
-                    b.ToTable("Users");
-                });
+                b.ToTable("Users");
+            });
 
             modelBuilder.Entity("DAL.Classes.UsersVehicles", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+            {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<double>("BatteryCapacityKwh")
-                        .HasColumnType("float");
+                b.Property<double>("BatteryCapacityKwh")
+                    .HasColumnType("float");
 
-                    b.Property<double>("CurrentBattery")
-                        .HasColumnType("float");
+                b.Property<double>("CurrentBattery")
+                    .HasColumnType("float");
 
-                    b.Property<int>("DriverId")
-                        .HasColumnType("int");
+                b.Property<int>("DriverId")
+                    .HasColumnType("int");
 
-                    b.Property<string>("Model")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                b.Property<string>("Model")
+                    .IsRequired()
+                    .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("SupportedChargerType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                b.Property<string>("SupportedChargerType")
+                    .IsRequired()
+                    .HasColumnType("nvarchar(max)");
 
-                    b.HasKey("Id");
+                b.HasKey("Id");
 
-                    b.HasIndex("DriverId");
+                b.HasIndex("DriverId");
 
-                    b.ToTable("UsersVehicles");
-                });
+                b.ToTable("UsersVehicles");
+            });
 
             modelBuilder.Entity("DAL.Classes.ChargeBooking", b =>
-                {
-                    b.HasOne("DAL.Classes.Drivers", "Driver")
-                        .WithMany("Bookings")
-                        .HasForeignKey("DriverId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+            {
+                b.HasOne("DAL.Classes.Drivers", "Driver")
+                    .WithMany("Bookings")
+                    .HasForeignKey("DriverId")
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired();
 
-                    b.HasOne("DAL.Classes.ChargingStations", "Station")
-                        .WithMany("Bookings")
-                        .HasForeignKey("StationId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                b.HasOne("DAL.Classes.ChargingStations", "Station")
+                    .WithMany("Bookings")
+                    .HasForeignKey("StationId")
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired();
 
-                    b.HasOne("DAL.Classes.UsersVehicles", "Vehicle")
-                        .WithMany("Bookings")
-                        .HasForeignKey("VehicleId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                b.HasOne("DAL.Classes.UsersVehicles", "Vehicle")
+                    .WithMany("Bookings")
+                    .HasForeignKey("VehicleId")
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired();
 
-                    b.Navigation("Driver");
+                b.Navigation("Driver");
 
-                    b.Navigation("Station");
+                b.Navigation("Station");
 
-                    b.Navigation("Vehicle");
-                });
+                b.Navigation("Vehicle");
+            });
 
             modelBuilder.Entity("DAL.Classes.ChargingStations", b =>
-                {
-                    b.HasOne("DAL.Classes.Owner", "Owner")
-                        .WithMany("Stations")
-                        .HasForeignKey("OwnerId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+            {
+                b.HasOne("DAL.Classes.Owner", "Owner")
+                    .WithMany("Stations")
+                    .HasForeignKey("OwnerId")
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired();
 
-                    b.Navigation("Owner");
-                });
+                b.Navigation("Owner");
+            });
 
             modelBuilder.Entity("DAL.Classes.Drivers", b =>
-                {
-                    b.HasOne("DAL.Classes.Users", "User")
-                        .WithOne("DriverProfile")
-                        .HasForeignKey("DAL.Classes.Drivers", "UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+            {
+                b.HasOne("DAL.Classes.Users", "User")
+                    .WithOne("DriverProfile")
+                    .HasForeignKey("DAL.Classes.Drivers", "UserId")
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired();
 
-                    b.Navigation("User");
-                });
+                b.Navigation("User");
+            });
 
             modelBuilder.Entity("DAL.Classes.Owner", b =>
-                {
-                    b.HasOne("DAL.Classes.Users", "User")
-                        .WithOne("OwnerProfile")
-                        .HasForeignKey("DAL.Classes.Owner", "UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+            {
+                b.HasOne("DAL.Classes.Users", "User")
+                    .WithOne("OwnerProfile")
+                    .HasForeignKey("DAL.Classes.Owner", "UserId")
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired();
 
-                    b.Navigation("User");
-                });
+                b.Navigation("User");
+            });
 
             modelBuilder.Entity("DAL.Classes.ReviewsToCharge", b =>
-                {
-                    b.HasOne("DAL.Classes.ChargeBooking", "Booking")
-                        .WithOne("Review")
-                        .HasForeignKey("DAL.Classes.ReviewsToCharge", "ChargeBookingId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+            {
+                b.HasOne("DAL.Classes.ChargeBooking", "Booking")
+                    .WithOne("Review")
+                    .HasForeignKey("DAL.Classes.ReviewsToCharge", "ChargeBookingId")
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired();
 
-                    b.HasOne("DAL.Classes.Drivers", "Driver")
-                        .WithMany("Reviews")
-                        .HasForeignKey("DriverId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                b.HasOne("DAL.Classes.Drivers", "Driver")
+                    .WithMany("Reviews")
+                    .HasForeignKey("DriverId")
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired();
 
-                    b.Navigation("Booking");
+                b.Navigation("Booking");
 
-                    b.Navigation("Driver");
-                });
+                b.Navigation("Driver");
+            });
 
             modelBuilder.Entity("DAL.Classes.StationStatusLogs", b =>
-                {
-                    b.HasOne("DAL.Classes.Drivers", "CurrentDriver")
-                        .WithMany()
-                        .HasForeignKey("CurrentDriverId")
-                        .OnDelete(DeleteBehavior.Restrict);
+            {
+                b.HasOne("DAL.Classes.Drivers", "CurrentDriver")
+                    .WithMany()
+                    .HasForeignKey("CurrentDriverId")
+                    .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("DAL.Classes.ChargingStations", "Station")
-                        .WithMany("Logs")
-                        .HasForeignKey("StationId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                b.HasOne("DAL.Classes.ChargingStations", "Station")
+                    .WithMany("Logs")
+                    .HasForeignKey("StationId")
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired();
 
-                    b.Navigation("CurrentDriver");
+                b.Navigation("CurrentDriver");
 
-                    b.Navigation("Station");
-                });
+                b.Navigation("Station");
+            });
 
             modelBuilder.Entity("DAL.Classes.UsersVehicles", b =>
-                {
-                    b.HasOne("DAL.Classes.Drivers", "Driver")
-                        .WithMany("Vehicles")
-                        .HasForeignKey("DriverId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+            {
+                b.HasOne("DAL.Classes.Drivers", "Driver")
+                    .WithMany("Vehicles")
+                    .HasForeignKey("DriverId")
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired();
 
-                    b.Navigation("Driver");
-                });
+                b.Navigation("Driver");
+            });
 
             modelBuilder.Entity("DAL.Classes.ChargeBooking", b =>
-                {
-                    b.Navigation("Review");
-                });
+            {
+                b.Navigation("Review");
+            });
 
             modelBuilder.Entity("DAL.Classes.ChargingStations", b =>
-                {
-                    b.Navigation("Bookings");
+            {
+                b.Navigation("Bookings");
 
-                    b.Navigation("Logs");
-                });
+                b.Navigation("Logs");
+            });
 
             modelBuilder.Entity("DAL.Classes.Drivers", b =>
-                {
-                    b.Navigation("Bookings");
+            {
+                b.Navigation("Bookings");
 
-                    b.Navigation("Reviews");
+                b.Navigation("Reviews");
 
-                    b.Navigation("Vehicles");
-                });
+                b.Navigation("Vehicles");
+            });
 
             modelBuilder.Entity("DAL.Classes.Owner", b =>
-                {
-                    b.Navigation("Stations");
-                });
+            {
+                b.Navigation("Stations");
+            });
 
             modelBuilder.Entity("DAL.Classes.Users", b =>
-                {
-                    b.Navigation("DriverProfile");
+            {
+                b.Navigation("DriverProfile");
 
-                    b.Navigation("OwnerProfile");
-                });
+                b.Navigation("OwnerProfile");
+            });
 
             modelBuilder.Entity("DAL.Classes.UsersVehicles", b =>
-                {
-                    b.Navigation("Bookings");
-                });
+            {
+                b.Navigation("Bookings");
+            });
 #pragma warning restore 612, 618
         }
     }
