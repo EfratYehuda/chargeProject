@@ -22,7 +22,6 @@ namespace BLL.Services
     public class UserService : IUserService
     {
         private sealed record PasswordResetEntry(string Code, DateTime ExpiresAtUtc, int FailedAttempts);
-
         private static readonly ConcurrentDictionary<string, PasswordResetEntry> _resetCodes = new();
 
         private readonly InterfaceUser _user;
@@ -123,7 +122,6 @@ namespace BLL.Services
 
             _mapper.Map(dto, entity);   // UpdateUserProfileDto holds only Name and Phone, so nothing else can change
             var updatedEntity = await _user.UpdateAsync(entity);
-
             return _mapper.Map<UserProfileDto>(updatedEntity);
         }
 
@@ -146,7 +144,6 @@ namespace BLL.Services
         public async Task<ForgotPasswordResultDto> ForgotPasswordAsync(ForgotPasswordRequestDto dto)
         {
             CleanupExpiredCodes();
-
             var email = dto.Email.Trim().ToLowerInvariant();
             var user = await _user.GetByEmailAsync(email);
             if (user is null)
@@ -158,7 +155,6 @@ namespace BLL.Services
             _resetCodes[email] = new PasswordResetEntry(code, DateTime.UtcNow.AddMinutes(15), 0);
 
             var sentViaEmail = await TrySendResetCodeEmailAsync(email, user.Name, code);
-
             return new ForgotPasswordResultDto
             {
                 SentViaEmail = sentViaEmail,
@@ -166,18 +162,18 @@ namespace BLL.Services
             };
         }
 
-        public async Task ResetPasswordAsync(ResetPasswordDto dto)
+        public async Task<string?> ResetPasswordAsync(ResetPasswordDto dto)
         {
             CleanupExpiredCodes();
-
             var email = dto.Email.Trim().ToLowerInvariant();
+
             if (!_resetCodes.TryGetValue(email, out var entry))
-                throw new BusinessRuleException("קוד האיפוס אינו תקף או שפג תוקפו");
+                return "קוד האיפוס אינו תקף או שפג תוקפו";
 
             if (entry.ExpiresAtUtc <= DateTime.UtcNow)
             {
                 _resetCodes.TryRemove(email, out _);
-                throw new BusinessRuleException("קוד האיפוס פג תוקף, יש לבקש קוד חדש");
+                return "קוד האיפוס פג תוקף, יש לבקש קוד חדש";
             }
 
             var incomingCode = dto.Code.Trim();
@@ -192,19 +188,21 @@ namespace BLL.Services
                 if (nextAttempts >= 5)
                 {
                     _resetCodes.TryRemove(email, out _);
-                    throw new BusinessRuleException("בוצעו יותר מדי ניסיונות שגויים. יש לבקש קוד חדש.");
+                    return "בוצעו יותר מדי ניסיונות שגויים. יש לבקש קוד חדש.";
                 }
 
                 _resetCodes[email] = entry with { FailedAttempts = nextAttempts };
-                throw new BusinessRuleException("קוד האיפוס שגוי");
+                return "קוד האיפוס שגוי";
             }
 
-            var user = await _user.GetByEmailAsync(email)
-                ?? throw new NotFoundException("המשתמש לא נמצא");
+            var user = await _user.GetByEmailAsync(email);
+            if (user is null)
+                return "המשתמש לא נמצא";
 
             user.PasswordHash = _hasher.HashPassword(user, dto.NewPassword);
             await _user.UpdateAsync(user);
             _resetCodes.TryRemove(email, out _);
+            return null;
         }
 
         public async Task DeleteAsync(int id)
@@ -261,7 +259,6 @@ namespace BLL.Services
             var host = _config["Smtp:Host"];
             var user = _config["Smtp:User"];
             var pass = _config["Smtp:Password"];
-
             if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(pass))
                 return false;
 

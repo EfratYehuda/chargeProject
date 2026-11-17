@@ -12,7 +12,6 @@ namespace BLL.Services
 
         // null = wrong email or password. This is an expected result, not an exception.
         Task<AuthResponseDto?> LoginAsync(LoginRequestDto dto);
-
         Task<UserProfileDto> GetByIdAsync(int id);
         Task<List<UserProfileDto>> GetAllAsync();
         Task<UserProfileDto?> GetByEmailAsync(string email);
@@ -21,7 +20,7 @@ namespace BLL.Services
         Task<UserProfileDto> UpdateAsync(int id, UpdateUserProfileDto dto);
         Task ChangePasswordAsync(int userId, ChangePasswordDto dto);
         Task<ForgotPasswordResultDto> ForgotPasswordAsync(ForgotPasswordRequestDto dto);
-        Task ResetPasswordAsync(ResetPasswordDto dto);
+        Task<string?> ResetPasswordAsync(ResetPasswordDto dto);
         Task DeleteAsync(int id);
     }
 }
