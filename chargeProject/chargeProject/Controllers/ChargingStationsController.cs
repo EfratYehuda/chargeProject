@@ -24,8 +24,8 @@ namespace chargeProject.Controllers
         // --- פעולה חדשה לריאקט: קבלת עמדות ממוינות באחוזים לפי צ'ק ליסט העדפות ---
         [AllowAnonymous]
         [HttpPost("recommend")]
-        public async Task<ActionResult<List<RankedStationResult>>> RecommendStations(
-            [FromBody] DriverPreferenceRequest request,
+        public async Task<ActionResult<List<RankedStationResultDto>>> RecommendStations(
+            [FromBody] DriverPreferenceRequestDto request,
             [FromServices] StationMatchingAlgorithm algorithm)
         {
             // רדיוס השליפה נקבע דינמית לפי טווח הסוללה (3 ק"מ לכל 1%), בין 30 ל-500 ק"מ

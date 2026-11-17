@@ -5,42 +5,13 @@ using System.Linq;
 
 namespace BLL.Algorithm
 {
-    // נתוני הבקשה וסדרי העדיפויות של הנהג
-    public class DriverPreferenceRequest
-    {
-        public double DriverLatitude { get; set; }
-        public double DriverLongitude { get; set; }
-        public int BatteryPercentage { get; set; } = 50; // אחוז סוללה נוכחי
-        public int AvailableTimeMinutes { get; set; } = 60; // זמן פנוי בדקות (למשל: 120 לשעתיים)
-
-        // סינוני חובה:
-        public string? RequiredChargerType { get; set; } // סוג שקע מבוקש (אם הנהג הגדיר)
-        public double? MinRating { get; set; } // דירוג מינימלי שהנהג דורש (למשל 4.0)
-
-        // משקולות העדפה באחוזים (סכומם 1.0 = 100%):
-        public double WeightDistance { get; set; } = 0.25; // 25% קרבה
-        public double WeightRating { get; set; } = 0.30;   // 30% דירוג ואיכות העמדה
-        public double WeightPrice { get; set; } = 0.25;    // 25% מחיר זול
-        public double WeightSpeed { get; set; } = 0.20;    // 20% התאמת זמן והספק
-    }
-
-    // תוצאת שקלול העמדה
-    public class RankedStationResult
-    {
-        public StationDto Station { get; set; } = null!;
-        public double DistanceKm { get; set; }
-        public int MatchPercentage { get; set; } // אחוז התאמה (0 עד 100%)
-        public string MatchReason { get; set; } = "";
-        public bool IsEmergencyMode { get; set; }
-    }
-
     public class StationMatchingAlgorithm
     {
-        public List<RankedStationResult> RankStations(
+        public List<RankedStationResultDto> RankStations(
             List<StationDto> stations,
-            DriverPreferenceRequest pref)
+            DriverPreferenceRequestDto pref)
         {
-            var results = new List<RankedStationResult>();
+            var results = new List<RankedStationResultDto>();
 
             // הערכת טווח נסיעה נותר: כ-3 ק"מ לכל 1% סוללה
             double estimatedRangeKm = Math.Max(pref.BatteryPercentage * 3.0, 1.0);
@@ -49,7 +20,7 @@ namespace BLL.Algorithm
             foreach (var st in stations)
             {
                 // 1. חישוב מרחק מדויק מהנהג לעמדה בק"מ
-                double dist = CalculateDistanceKm(pref.DriverLatitude, pref.DriverLongitude, st.Latitude, st.Longitude);
+                double dist = GeoHelper.AirDistanceKm(pref.DriverLatitude, pref.DriverLongitude, st.Latitude, st.Longitude);
 
                 // 2. חוק ברזל: אם העמדה מחוץ לטווח הסוללה - לא ניתן להגיע אליה!
                 if (dist > estimatedRangeKm)
@@ -115,7 +86,7 @@ namespace BLL.Algorithm
                     reason = $"התאמה של {Math.Round(finalScore)}%: עמדה במרחק {dist:F1} ק\"מ, דירוג ⭐{stationRating:F1}, מחיר {st.PricePerKwh} ₪/קוט\"ש והספק {st.MaxKw}kW.";
                 }
 
-                results.Add(new RankedStationResult
+                results.Add(new RankedStationResultDto
                 {
                     Station = st,
                     DistanceKm = Math.Round(dist, 2),
@@ -129,11 +100,11 @@ namespace BLL.Algorithm
             if (isEmergency && results.Count == 0 && stations.Count > 0)
             {
                 var nearest = stations
-                    .Select(s => new { Station = s, Dist = CalculateDistanceKm(pref.DriverLatitude, pref.DriverLongitude, s.Latitude, s.Longitude) })
+                    .Select(s => new { Station = s, Dist = GeoHelper.AirDistanceKm(pref.DriverLatitude, pref.DriverLongitude, s.Latitude, s.Longitude) })
                     .OrderBy(x => x.Dist)
                     .First();
 
-                results.Add(new RankedStationResult
+                results.Add(new RankedStationResultDto
                 {
                     Station = nearest.Station,
                     DistanceKm = Math.Round(nearest.Dist, 2),
@@ -145,18 +116,6 @@ namespace BLL.Algorithm
 
             // מיון סופי מהציון הגבוה לנמוך
             return results.OrderByDescending(r => r.MatchPercentage).ToList();
-        }
-
-        private double CalculateDistanceKm(double lat1, double lon1, double lat2, double lon2)
-        {
-            var r = 6371; // ק"מ
-            var dLat = (lat2 - lat1) * Math.PI / 180.0;
-            var dLon = (lon2 - lon1) * Math.PI / 180.0;
-            var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
-                    Math.Cos(lat1 * Math.PI / 180.0) * Math.Cos(lat2 * Math.PI / 180.0) *
-                    Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
-            var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
-            return r * c;
         }
     }
 }

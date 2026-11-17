@@ -27,7 +27,7 @@ namespace BLL.Agent
         }
 
         [Description("מאתר ומדרג את 3 העמדות הטובות ביותר לפי קואורדינטות GPS או כתובת טקסטואלית, כולל חישוב מרחק אווירי וציון התאמה.")]
-        public async Task<List<RankedStationResult>> FindBestStationsAsync(
+        public async Task<List<RankedStationResultDto>> FindBestStationsAsync(
             [Description("קו רוחב של הנהג (אם ידוע)")] double? latitude = null,
             [Description("קו אורך של הנהג (אם ידוע)")] double? longitude = null,
             [Description("כתובת או עיר ורחוב לחיפוש אם אין קואורדינטות, למשל: רוטשילד פתח תקווה")] string? address = null,
@@ -56,7 +56,7 @@ namespace BLL.Agent
                 }
                 else
                 {
-                    return new List<RankedStationResult>();
+                    return new List<RankedStationResultDto>();
                 }
             }
             else if (latitude.HasValue && longitude.HasValue)
@@ -66,12 +66,12 @@ namespace BLL.Agent
             }
             else
             {
-                return new List<RankedStationResult>();
+                return new List<RankedStationResultDto>();
             }
 
             var stations = await _stationService.GetActiveInRadiusAsync(targetLat, targetLng, 25, null);
 
-            var pref = new DriverPreferenceRequest
+            var pref = new DriverPreferenceRequestDto
             {
                 DriverLatitude = targetLat,
                 DriverLongitude = targetLng,

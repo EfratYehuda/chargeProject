@@ -51,3 +51,22 @@ namespace DTO
         public const string Pattern = "^(CCS|Type2)$";
     }
 }
+
+namespace DTO
+{
+    /// <summary>קבועים של אלגוריתם המסלול (מצב יעד)</summary>
+    public static class RouteRules
+    {
+        public const double ConsumptionKwhPerKm = 0.18;     // צריכת אנרגיה ממוצעת לק"מ
+        public const double RoadFactor = 1.3;               // מקדם כבישים: קו אוויר × 1.3 ≈ מרחק נסיעה
+        public const double ReserveKm = 20;                 // רזרבה שתמיד נשארת בסוללה
+        public const double MaxDetourKm = 20;               // עקיפה מקסימלית מותרת מהמסלול
+        public const double AverageSpeedKmh = 60;           // מהירות ממוצעת לחישוב זמן עקיפה
+        public const double DefaultBatteryCapacityKwh = 60; // אם לא נשלחה קיבולת מהרכב
+
+        // משקלים לציון (סכום = 1)
+        public const double WeightTime = 0.40;
+        public const double WeightCost = 0.40;
+        public const double WeightRating = 0.20;
+    }
+}
