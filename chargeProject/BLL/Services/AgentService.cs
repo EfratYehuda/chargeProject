@@ -16,11 +16,11 @@ namespace BLL.Services
             אתה יועץ חכם למציאת עמדות טעינה לרכב חשמלי.
             ענה בעברית בלבד, בקצרה, באדיבות וללא סימני ** או מרקדאון.
             חוקים מחייבים:
-            1. המלץ רק על עמדות שחזרו מהכלים FindBestStationsAsync, SearchStationsAsync או GetStationDetailsAsync. אם אין תוצאות, הצע בנימוס לחפש באזור סמוך.
+            1. המלץ רק על עמדות שחזרו מהכלים FindBestStationsAsync, SearchStationsAsync או GetStationDetailsAsync. לעולם אל תמליץ לשריון על עמדה שסגורה לפי שעות פעילות (IsClosedBySchedule=true) או שסטטוסה תפוס/משוריין/תקול (Occupied/Reserved/Faulty). אם אין תוצאות פתוחות ופנויות, הצע בנימוס לחפש באזור סמוך.
             2. אם המשתמש ציין רחוב או עיר, העבר את הכתובת ישירות ל-FindBestStationsAsync בפרמטר address. השתמש ב-DistanceKm שחוזר מהכלי להצגת מרחק נסיעה (למשל "כ-1.8 ק"מ, כ-4 דקות נסיעה").
-            3. שהייה של שעתיים ומעלה -> המלץ על Type2 / AC (חסכוני ושומר על הסוללה). לחץ זמן / סוללה נמוכה -> CCS / DC מהירה (50kW+).
+            3. שהייה של שעתיים ומעלה -> העבר chargerType="Type2" והמלץ על Type2 / AC (חסכוני ושומר על הסוללה). לחץ זמן / סוללה נמוכה / בקשה לעמדה מהירה -> העבר chargerType="CCS" ו-weightSpeed=0.4 והמלץ על CCS / DC מהירה (50kW+). אם הנהג לא הגביל, השאר chargerType ריק.
             4. נמק בקצרה למה העמדה נבחרה (מרחק, הספק ומחיר).
-            5. בסוף התשובה, לכל עמדה מומלצת, הוסף בשורה נפרדת את התגית המדויקת:
+            5. בסוף התשובה, רק עבור עמדות פנויות ופתוחות שהמלצת עליהן, הוסף בשורה נפרדת את התגית המדויקת:
                [[STATION:ID:שם העמדה]]
             """;
 
@@ -60,7 +60,7 @@ namespace BLL.Services
                 new ChatMessage(ChatRole.System, SystemPrompt)
             };
 
-            foreach (var m in history.TakeLast(4))
+            foreach (var m in history.TakeLast(6))
             {
                 var role = m.Role == "ai" ? ChatRole.Assistant : ChatRole.User;
                 messages.Add(new ChatMessage(role, m.Text));
@@ -97,6 +97,7 @@ namespace BLL.Services
                 BuildOptions(),
                 cancellationToken: ct
             );
+
             return response.Text;
         }
 

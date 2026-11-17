@@ -1,5 +1,6 @@
 ﻿using BLL.Services;
 using DTO.AIDTO;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 
@@ -7,6 +8,7 @@ namespace chargeProject.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class chatController : ControllerBase
     {
         private readonly IAgentService _agentService;
@@ -21,6 +23,7 @@ namespace chargeProject.Controllers
         {
             var messages = dto?.Messages ?? new List<ChatMessageDto>();
             Console.WriteLine($"[AI] 1. Request arrived ({messages.Count} messages)");
+
             Response.ContentType = "text/event-stream";
             Response.Headers.CacheControl = "no-cache";
 
@@ -90,6 +93,7 @@ namespace chargeProject.Controllers
             var json = JsonSerializer.Serialize(new { text });
             await Response.WriteAsync($"data: {json}\n\n", ct);
             await Response.Body.FlushAsync(ct);
+
             await Response.WriteAsync("data: [DONE]\n\n", ct);
             await Response.Body.FlushAsync(ct);
         }

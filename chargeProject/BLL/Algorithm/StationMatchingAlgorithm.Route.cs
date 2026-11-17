@@ -12,6 +12,8 @@ namespace BLL.Algorithm
     /// </summary>
     public partial class StationMatchingAlgorithm
     {
+        private const int MinComfortableArrivalPercent = 20;
+
         public RouteRecommendationResponseDto RankRouteStops(
             List<StationDto> stations,
             DriverPreferenceRequestDto pref)
@@ -20,13 +22,14 @@ namespace BLL.Algorithm
                 ? pref.BatteryCapacityKwh
                 : RouteRules.DefaultBatteryCapacityKwh;
 
-            double oLat = pref.DriverLatitude, oLon = pref.DriverLongitude;           // O = מוצא
-            double dLat = pref.DestinationLatitude!.Value, dLon = pref.DestinationLongitude!.Value; // D = יעד
+            double oLat = pref.DriverLatitude, oLon = pref.DriverLongitude;
+            double dLat = pref.DestinationLatitude!.Value, dLon = pref.DestinationLongitude!.Value;
 
-            // ===== צעד 1: האם בכלל צריך לעצור? =====
-            double startKwh = pref.BatteryPercentage / 100.0 * capacityKwh;              // כמה קוט"ש יש עכשיו
-            double rangeKm = startKwh / RouteRules.ConsumptionKwhPerKm - RouteRules.ReserveKm; // כמה ק"מ אפשר לנסוע ולהשאיר רזרבה
-            double tripKm = GeoHelper.RoadDistanceKm(oLat, oLon, dLat, dLon);            // אורך הנסיעה O→D
+            // ===== צעד 1: האם הסוללה מספיקה לנסיעה ועם כמה מגיעים? =====
+            double startKwh = pref.BatteryPercentage / 100.0 * capacityKwh;
+            double minReserveKwh = RouteRules.ReserveKm * RouteRules.ConsumptionKwhPerKm;
+            double rangeKm = startKwh / RouteRules.ConsumptionKwhPerKm - RouteRules.ReserveKm;
+            double tripKm = GeoHelper.RoadDistanceKm(oLat, oLon, dLat, dLon);
 
             var response = new RouteRecommendationResponseDto
             {
@@ -34,27 +37,33 @@ namespace BLL.Algorithm
                 RangeKm = Math.Round(Math.Max(rangeKm, 0), 1)
             };
 
-            if (rangeKm >= tripKm)
-            {
-                double arrivalKwh = startKwh - tripKm * RouteRules.ConsumptionKwhPerKm;
-                int arrivalPercent = (int)Math.Round(arrivalKwh / capacityKwh * 100);
+            double directArrivalKwh = startKwh - tripKm * RouteRules.ConsumptionKwhPerKm;
+            int directArrivalPercent = (int)Math.Round(directArrivalKwh / capacityKwh * 100);
+            bool canReachPhysically = rangeKm >= tripKm;
 
+            // רק אם מגיעים בבטחה וגם מעל 20% סוללה — באמת אין צורך לעצור
+            if (canReachPhysically && directArrivalPercent >= MinComfortableArrivalPercent)
+            {
                 response.NoChargeNeeded = true;
-                response.ArrivalPercentAtDestination = arrivalPercent;
-                response.Message = $"✅ אין צורך בטעינה: הנסיעה {tripKm:F0} ק\"מ, ותגיעו ליעד עם כ-{arrivalPercent}% סוללה.";
+                response.ArrivalPercentAtDestination = directArrivalPercent;
+                response.Message = $"✅ אין צורך בטעינה: הנסיעה {tripKm:F0} ק\"מ, ותגיעו ליעד עם כ-{directArrivalPercent}% סוללה.";
                 return response;
             }
 
-            // ===== צעדים 2–3: סינון וחישוב לכל עמדה =====
-            var candidates = new List<RankedStationResultDto>();
+            bool isLowArrivalDirectly = canReachPhysically && directArrivalPercent < MinComfortableArrivalPercent;
+            double targetReserveKwh = isLowArrivalDirectly
+                ? Math.Max(minReserveKwh, capacityKwh * (MinComfortableArrivalPercent / 100.0))
+                : minReserveKwh;
 
+            // ===== צעדים 2–3: סינון וחישוב לכל עמדה פתוחה ופנויה בדרך =====
+            var candidates = new List<RankedStationResultDto>();
             foreach (var st in stations)
             {
-                if (!PassesBasicFilters(st, pref)) continue;   // שקע / תקלה / דירוג מינימלי
-                if (st.MaxKw <= 0) continue;                   // בלי הספק אי אפשר לחשב זמן טעינה
+                if (!PassesBasicFilters(st, pref)) continue;
+                if (st.MaxKw <= 0) continue;
 
-                double toStationKm = GeoHelper.RoadDistanceKm(oLat, oLon, st.Latitude, st.Longitude); // O→S
-                double toDestKm = GeoHelper.RoadDistanceKm(st.Latitude, st.Longitude, dLat, dLon);   // S→D
+                double toStationKm = GeoHelper.RoadDistanceKm(oLat, oLon, st.Latitude, st.Longitude);
+                double toDestKm = GeoHelper.RoadDistanceKm(st.Latitude, st.Longitude, dLat, dLon);
 
                 // אילוץ 1: חייבים להגיע לעמדה עם הסוללה הנוכחית
                 if (toStationKm > rangeKm) continue;
@@ -66,15 +75,15 @@ namespace BLL.Algorithm
                 // כמה קוט"ש יהיו בסוללה כשנגיע לעמדה
                 double arrivalAtStationKwh = startKwh - toStationKm * RouteRules.ConsumptionKwhPerKm;
 
-                // כמה צריך לטעון (מינימום) כדי להגיע מהעמדה ליעד ולהשאיר רזרבה
-                double neededKwh = (toDestKm + RouteRules.ReserveKm) * RouteRules.ConsumptionKwhPerKm;
+                // כמה צריך לטעון כדי להגיע ליעד ולהשאיר רזרבה בטוחה (לפחות 20% במקרה של סוללה נמוכה)
+                double neededKwh = toDestKm * RouteRules.ConsumptionKwhPerKm + targetReserveKwh;
                 double chargeKwh = Math.Max(0, neededKwh - arrivalAtStationKwh);
 
                 // אילוץ 3: אם גם סוללה מלאה לא מספיקה מהעמדה ליעד – העמדה לא רלוונטית
                 if (arrivalAtStationKwh + chargeKwh > capacityKwh) continue;
 
-                double chargeCost = chargeKwh * st.PricePerKwh;                         // ₪
-                double chargeMinutes = chargeKwh / st.MaxKw * 60;                       // קוט"ש ÷ קוט"ש-לשעה = שעות → דקות
+                double chargeCost = chargeKwh * st.PricePerKwh;
+                double chargeMinutes = chargeKwh / st.MaxKw * 60;
                 double detourMinutes = Math.Max(0, detourKm) / RouteRules.AverageSpeedKmh * 60;
                 double extraMinutes = detourMinutes + chargeMinutes;
 
@@ -95,21 +104,29 @@ namespace BLL.Algorithm
 
             if (candidates.Count == 0)
             {
-                response.Message = "⚠️ לא נמצאה עמדה מתאימה בדרך (בטווח הסוללה ועם עקיפה של עד " +
+                if (isLowArrivalDirectly)
+                {
+                    response.NoChargeNeeded = true;
+                    response.ArrivalPercentAtDestination = Math.Max(0, directArrivalPercent);
+                    response.Message =
+                        $"⚠️ הסוללה מספיקה לנסיעה ({tripKm:F0} ק\"מ), אך תגיעו ליעד עם כ-{Math.Max(0, directArrivalPercent)}% סוללה בלבד ולא נמצאו תחנות פתוחות ופנויות על המסלול.";
+                    return response;
+                }
+
+                response.Message = "⚠️ לא נמצאה עמדה פתוחה ופנויה מתאימה בדרך (בטווח הסוללה ועם עקיפה של עד " +
                                    $"{RouteRules.MaxDetourKm:F0} ק\"מ). נסו להרחיב את החיפוש או לטעון לפני היציאה.";
                 return response;
             }
 
             // ===== צעד 4: ציון משוקלל (נרמול min/max בין המועמדות) =====
-            // צריך את כל המועמדות לפני הציון, כי "זול" ו"מהיר" הם יחסיים לשאר העמדות
             double minTime = candidates.Min(c => c.ExtraMinutes!.Value), maxTime = candidates.Max(c => c.ExtraMinutes!.Value);
             double minCost = candidates.Min(c => c.ChargeCost!.Value), maxCost = candidates.Max(c => c.ChargeCost!.Value);
 
             foreach (var c in candidates)
             {
-                double timeScore = 1 - Normalize(c.ExtraMinutes!.Value, minTime, maxTime); // הכי מהירה = 1
-                double costScore = 1 - Normalize(c.ChargeCost!.Value, minCost, maxCost);   // הכי זולה = 1
-                double ratingScore = (c.Station.AverageRating ?? 4.0) / 5.0;               // 5 כוכבים = 1
+                double timeScore = 1 - Normalize(c.ExtraMinutes!.Value, minTime, maxTime);
+                double costScore = 1 - Normalize(c.ChargeCost!.Value, minCost, maxCost);
+                double ratingScore = (c.Station.AverageRating ?? 4.0) / 5.0;
 
                 double score = timeScore * RouteRules.WeightTime +
                                costScore * RouteRules.WeightCost +
@@ -120,31 +137,57 @@ namespace BLL.Algorithm
             }
 
             // ===== צעד 5: מיון מהציון הגבוה לנמוך =====
-            // Merge Sort שמימשנו – סדר יורד: ציון גבוה קודם (b מול a)
             response.Stations = MergeSorter.Sort(candidates,
                 (a, b) => b.MatchPercentage.CompareTo(a.MatchPercentage));
-            response.Message = response.Stations[0].MatchReason;
+
+            if (isLowArrivalDirectly)
+            {
+                response.NoChargeNeeded = false;
+                response.ArrivalPercentAtDestination = Math.Max(0, directArrivalPercent);
+                response.Message =
+                    $"⚠️ תוכלו להגיע ליעד ישירות, אך תישארו עם כ-{Math.Max(0, directArrivalPercent)}% סוללה בלבד. {response.Stations[0].MatchReason}";
+            }
+            else
+            {
+                response.Message = response.Stations[0].MatchReason;
+            }
+
             return response;
         }
 
         // ---------- פונקציות עזר ----------
 
-        /// <summary>מנרמל ערך לטווח 0..1 ביחס למינימום ולמקסימום. אם כולם שווים – 0 (כלומר: כולם "הכי טובים")</summary>
         private static double Normalize(double value, double min, double max)
         {
             return max - min < 0.0001 ? 0 : (value - min) / (max - min);
         }
 
-        /// <summary>סינונים בסיסיים: סוג שקע, עמדה תקולה, דירוג מינימלי</summary>
+        /// <summary>סינונים בסיסיים: פעילה, פתוחה לפי לו״ז, שקע תואם, פנויה ודירוג מינימלי</summary>
         private static bool PassesBasicFilters(StationDto st, DriverPreferenceRequestDto pref)
         {
+            if (!st.IsActive || st.IsClosedBySchedule)
+                return false;
+
             if (!string.IsNullOrWhiteSpace(pref.RequiredChargerType) &&
                 !st.ChargerType.Contains(pref.RequiredChargerType, StringComparison.OrdinalIgnoreCase))
                 return false;
 
-            if (!string.IsNullOrWhiteSpace(st.CurrentStatus) &&
-                (st.CurrentStatus.Contains("תקול") || st.CurrentStatus.Contains("Fault") || st.CurrentStatus.Contains("Broken")))
-                return false;
+            if (!string.IsNullOrWhiteSpace(st.CurrentStatus))
+            {
+                var status = st.CurrentStatus.Trim();
+                if (status.Equals(StationStatuses.Faulty, StringComparison.OrdinalIgnoreCase) ||
+                    status.Equals(StationStatuses.Occupied, StringComparison.OrdinalIgnoreCase) ||
+                    status.Equals(StationStatuses.Reserved, StringComparison.OrdinalIgnoreCase) ||
+                    status.Contains("תקול", StringComparison.OrdinalIgnoreCase) ||
+                    status.Contains("Fault", StringComparison.OrdinalIgnoreCase) ||
+                    status.Contains("Broken", StringComparison.OrdinalIgnoreCase) ||
+                    status.Contains("תפוס", StringComparison.OrdinalIgnoreCase) ||
+                    status.Contains("משוריינ", StringComparison.OrdinalIgnoreCase) ||
+                    status.Contains("שמור", StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+            }
 
             double rating = st.AverageRating ?? 4.0;
             if (pref.MinRating.HasValue && rating < pref.MinRating.Value)
@@ -153,7 +196,6 @@ namespace BLL.Algorithm
             return true;
         }
 
-        /// <summary>משפט הסבר קריא, למשל: "עצרו ברמלה: 2.6 ק"מ עקיפה. מספיק לטעון 1.1 קוט"ש..."</summary>
         private static string BuildRouteReason(RankedStationResultDto c)
         {
             return $"עצירה מומלצת ב{c.Station.Name}: {c.DetourKm:F1} ק\"מ עקיפה. " +
