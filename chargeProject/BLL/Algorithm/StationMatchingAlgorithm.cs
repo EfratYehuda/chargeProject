@@ -102,10 +102,19 @@ namespace BLL.Algorithm
             // הצלת חירום: אם כל העמדות היו מחוץ לטווח הסוללה במצב חירום - מחזירים את הקרובה ביותר עם אזהרה חמורה
             if (isEmergency && results.Count == 0 && stations.Count > 0)
             {
-                var nearest = stations
-                    .Select(s => new { Station = s, Dist = GeoHelper.AirDistanceKm(pref.DriverLatitude, pref.DriverLongitude, s.Latitude, s.Longitude) })
-                    .OrderBy(x => x.Dist)
-                    .First();
+                // חיפוש מינימום לינארי – O(n): לא צריך למיין הכול כדי למצוא את הקרובה ביותר
+                StationDto nearestStation = stations[0];
+                double nearestDist = double.MaxValue;
+                foreach (var s in stations)
+                {
+                    double d = GeoHelper.AirDistanceKm(pref.DriverLatitude, pref.DriverLongitude, s.Latitude, s.Longitude);
+                    if (d < nearestDist)
+                    {
+                        nearestDist = d;
+                        nearestStation = s;
+                    }
+                }
+                var nearest = new { Station = nearestStation, Dist = nearestDist };
 
                 results.Add(new RankedStationResultDto
                 {
@@ -118,7 +127,8 @@ namespace BLL.Algorithm
             }
 
             // מיון סופי מהציון הגבוה לנמוך
-            return results.OrderByDescending(r => r.MatchPercentage).ToList();
+            // Merge Sort שמימשנו – סדר יורד לפי אחוז התאמה
+            return MergeSorter.Sort(results, (a, b) => b.MatchPercentage.CompareTo(a.MatchPercentage));
         }
     }
 }

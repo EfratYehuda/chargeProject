@@ -120,8 +120,9 @@ namespace BLL.Algorithm
             }
 
             // ===== צעד 5: מיון מהציון הגבוה לנמוך =====
-            // TODO שלב 5: להחליף ב-Merge Sort שמימשנו
-            response.Stations = candidates.OrderByDescending(c => c.MatchPercentage).ToList();
+            // Merge Sort שמימשנו – סדר יורד: ציון גבוה קודם (b מול a)
+            response.Stations = MergeSorter.Sort(candidates,
+                (a, b) => b.MatchPercentage.CompareTo(a.MatchPercentage));
             response.Message = response.Stations[0].MatchReason;
             return response;
         }
