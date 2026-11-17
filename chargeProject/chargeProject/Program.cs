@@ -20,13 +20,28 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --------- AI Agent (Official Google.GenAI SDK) ---------
+// --------- AI Agent (Official Google.GenAI SDK + Automatic Model Fallback) ---------
 var apiKey = builder.Configuration["GEMINI:APIKEY"]
     ?? throw new InvalidOperationException("GEMINI:APIKEY is missing");
-var geminiModel = builder.Configuration["GEMINI:MODEL"] ?? "gemini-3.5-flash";
+var configuredModel = builder.Configuration["GEMINI:MODEL"];
+var primaryModel = string.IsNullOrWhiteSpace(configuredModel)
+    ? "gemini-3.5-flash"
+    : configuredModel.Trim();
+
+var fallbackModels = new[]
+{
+    primaryModel,
+    "gemini-3.5-flash-lite",
+    "gemini-3.6-flash",
+    "gemini-3.8-flash"
+}.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 
 var geminiClient = new Client(apiKey: apiKey);
-IChatClient innerClient = geminiClient.AsIChatClient(geminiModel);
+var modelClients = fallbackModels
+    .Select(model => (Model: model, Client: geminiClient.AsIChatClient(model)))
+    .ToList();
+
+IChatClient innerClient = new FallbackChatClient(modelClients);
 
 builder.Services.AddChatClient(innerClient)
     .UseFunctionInvocation(configure: client => client.MaximumIterationsPerRequest = 4);
@@ -57,7 +72,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-// תפיסת שגיאות גלובלית
+// טיפול שגיאות גלובלי
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
@@ -65,12 +80,10 @@ builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi(options =>
 {
     options.OpenApiVersion = OpenApiSpecVersion.OpenApi3_0;
-
     options.AddDocumentTransformer((document, context, cancellationToken) =>
     {
         document.Components ??= new OpenApiComponents();
         document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
-
         document.Components.SecuritySchemes["Bearer"] = new OpenApiSecurityScheme
         {
             Type = SecuritySchemeType.Http,
@@ -78,13 +91,11 @@ builder.Services.AddOpenApi(options =>
             BearerFormat = "JWT",
             Description = "Paste the token only (without the word Bearer)."
         };
-
         document.Security ??= new List<OpenApiSecurityRequirement>();
         document.Security.Add(new OpenApiSecurityRequirement
         {
             [new OpenApiSecuritySchemeReference("Bearer", document)] = new List<string>()
         });
-
         return Task.CompletedTask;
     });
 });
@@ -129,7 +140,6 @@ builder.Services.AddAuthorization(options =>
     options.FallbackPolicy = new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
         .Build();
-
     options.AddPolicy("Driver", policy => policy.RequireClaim("driverId"));
     options.AddPolicy("Owner", policy => policy.RequireClaim("ownerId"));
 });
@@ -152,7 +162,6 @@ builder.Services.AddScoped<IOwnersService, OwnersService>();
 builder.Services.AddScoped<IUsersVehiclesService, UsersVehiclesService>();
 builder.Services.AddScoped<IChargingStationsService, ChargingStationsService>();
 builder.Services.AddScoped<IChargeBookingService, ChargeBookingService>();
-// שירות רקע לשחרור עמדות שפג תוקף השריון שלהן
 builder.Services.AddHostedService<chargeProject.BackgroundServices.ExpireHoldsService>();
 builder.Services.AddScoped<IReviewsToChargeService, ReviewsToChargeService>();
 builder.Services.AddScoped<IStationStatusLogsService, StationStatusLogsService>();
@@ -169,7 +178,8 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        db.Database.Migrate(); // מוודא שהמיגרציות כולל מניעת שריון כפול חלות על המסד
+        db.Database.Migrate();
+
         var adminEmails = (app.Configuration.GetSection("AdminEmails").Get<string[]>() ?? Array.Empty<string>())
             .Where(e => !string.IsNullOrWhiteSpace(e))
             .Select(e => e.Trim().ToLowerInvariant())
@@ -186,6 +196,7 @@ using (var scope = app.Services.CreateScope())
                 logger.LogInformation("Promoted {Email} to Admin.", email);
             }
         }
+
         if (db.ChangeTracker.HasChanges()) db.SaveChanges();
     }
     catch (Exception ex)
@@ -211,6 +222,8 @@ if (!app.Environment.IsDevelopment())
 app.UseCors("AllowReactDev");
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapGet("/", () => "ChargeFlow API is running!").AllowAnonymous();
 app.MapControllers();
+
 app.Run();
