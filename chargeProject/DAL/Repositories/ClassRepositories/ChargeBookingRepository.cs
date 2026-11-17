@@ -58,7 +58,6 @@ namespace DAL.Repositories.ClassRepositories
         {
             var entity = await _context.Set<ChargeBooking>().FindAsync(id);
             if (entity == null) return false;
-
             _context.Set<ChargeBooking>().Remove(entity);
             await _context.SaveChangesAsync();
             return true;
@@ -91,10 +90,16 @@ namespace DAL.Repositories.ClassRepositories
         }
 
         public async Task<ChargingStations?> GetStationByIdAsync(int stationId) =>
-            await _context.Set<ChargingStations>().AsNoTracking().FirstOrDefaultAsync(s => s.Id == stationId);
+            await _context.Set<ChargingStations>()
+                .Include(s => s.Owner)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id == stationId);
 
         public async Task<UsersVehicles?> GetVehicleByIdAsync(int vehicleId) =>
-            await _context.Set<UsersVehicles>().AsNoTracking().FirstOrDefaultAsync(v => v.Id == vehicleId);
+            await _context.Set<UsersVehicles>()
+                .Include(v => v.Driver)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(v => v.Id == vehicleId);
 
         // --- אבטחת IDOR ---
         public async Task<ChargeBooking?> GetOwnedAsync(int id, int driverId) =>

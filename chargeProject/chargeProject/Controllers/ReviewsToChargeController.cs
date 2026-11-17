@@ -7,8 +7,8 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace chargeProject.Controllers
 {
-    // Reviews of a station are public to any logged-in user. Writing and deleting
-    // is for drivers only, and the driverId always comes from the token.
+    // Reviews of a station are public to any logged-in user. Writing is for drivers only,
+    // and deleting is allowed for the review's author or an Admin.
     [Route("api/[controller]")]
     [ApiController]
     [Authorize]
@@ -63,10 +63,17 @@ namespace chargeProject.Controllers
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Policy = "Driver")]
         public async Task<IActionResult> DeleteReview(int id)
         {
-            await _reviewsToChargeService.DeleteAsync(id, User.GetRequiredDriverId());
+            if (User.IsAdmin())
+            {
+                await _reviewsToChargeService.DeleteAsAdminAsync(id);
+            }
+            else
+            {
+                await _reviewsToChargeService.DeleteAsync(id, User.GetRequiredDriverId());
+            }
+
             return Ok($"Review with ID {id} deleted successfully.");
         }
     }

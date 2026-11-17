@@ -34,6 +34,15 @@ namespace DTO
         public const string Pattern = "^(Available|Occupied|Reserved|Faulty)$";
     }
 
+    /// <summary>סטטוס אישור מנהל לעמדת טעינה (מניעת עמדות פייק)</summary>
+    public static class StationApprovalStatuses
+    {
+        public const string Pending = "Pending";
+        public const string Approved = "Approved";
+        public const string Rejected = "Rejected";
+        public const string Pattern = "^(Pending|Approved|Rejected)$";
+    }
+
     /// <summary>תפקידי משתמש</summary>
     public static class UserRoles
     {

@@ -1,5 +1,4 @@
 ﻿using DAL.Classes;
-using DTO.STATIONDTO;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -8,20 +7,21 @@ namespace DAL.Repositories.IRepositories
     public interface InterfaceChargingStations
     {
         Task<ChargingStations>? GetOwnerAsync(int id, int userId);
-       
         Task<ChargingStations?> GetByIdAsync(int id);
+        Task<ChargingStations?> GetByIdForUpdateAsync(int id);
         Task<List<ChargingStations>> GetAllAsync();
+        Task<List<ChargingStations>> GetAllApprovedAsync();
+        Task<List<ChargingStations>> GetPendingAsync();
         Task<List<ChargingStations>> GetByOwnerIdAsync(int ownerId);
         Task<int?> GetOwnerIdByUserIdAsync(int userId);
         Task<ChargingStations?> GetOwnedAsync(int id, int ownerId);
-        // שליפה מרובעת פשוטה ב-DB
+        // שליפה מרובעת פשוטה ב-DB (מאושרות ופעילות בלבד)
         Task<List<ChargingStations>> GetActiveInBoundingBoxAsync(double minLat, double maxLat, double minLng, double maxLng, string? chargerType);
         Task<ChargingStations> AddAsync(ChargingStations entity);
         Task<ChargingStations?> UpdateAsync(ChargingStations entity);
+        Task SaveChangesAsync();
         Task<bool> DeleteAsync(int id);
         Task<bool> OwnerExistsAsync(int ownerId);
-
         Task<List<ChargingStations>> SearchAsync(string? text, int max = 5);
-        //Task<object?> AddAsync(CreateUpdateStationDto dto);
     }
 }

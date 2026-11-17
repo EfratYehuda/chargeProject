@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DTO;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Text;
@@ -27,6 +28,12 @@ namespace DAL.Classes
         public double PricePerKwh { get; set; }
         [Required]
         public bool IsActive { get; set; }
+        [MaxLength(100)]
+        public string? BlockedHours { get; set; }
+        [Required, MaxLength(20)]
+        public string ApprovalStatus { get; set; } = StationApprovalStatuses.Pending;
+        [MaxLength(300)]
+        public string? RejectionReason { get; set; }
 
         public Owner Owner { get; set; } // הבעלים של העמדה
         public List<ChargeBooking> Bookings { get; set; } // הזמנות בעמדה

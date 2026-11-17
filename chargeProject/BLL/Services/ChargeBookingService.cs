@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using BLL.Exceptions;
+using BLL.Helpers;
 using DAL.Classes;
 using DAL.Repositories.IRepositories;
 using DTO;
@@ -83,6 +84,10 @@ namespace BLL.Services
 
             var station = await _bookingRepo.GetStationByIdAsync(dto.StationId)
                 ?? throw new NotFoundException("העמדה לא נמצאה");
+
+            if (station.ApprovalStatus != StationApprovalStatuses.Approved)
+                throw new BusinessRuleException("העמדה טרם אושרה על ידי מנהל המערכת");
+
             if (!station.IsActive)
                 throw new BusinessRuleException("העמדה אינה פעילה");
 
@@ -91,15 +96,24 @@ namespace BLL.Services
             if (vehicle == null || vehicle.DriverId != driverId)
                 throw new NotFoundException("הרכב לא נמצא");
 
+            // מניעת שריון עצמי: בדיקה לפי UserId של בעל העמדה מול UserId של הנהג
+            if (station.Owner != null && vehicle.Driver != null && station.Owner.UserId == vehicle.Driver.UserId)
+                throw new BusinessRuleException("בעל עמדה אינו יכול לשריין את העמדה של עצמו");
+
+            var now = DateTime.Now;
+            var normalizedArrival = NormalizeEstimatedArrivalTime(now, dto.EstimatedArrivalTime);
+            var holdDuration = normalizedArrival - now;
+            var israelNow = StationScheduleHelper.GetIsraelNow();
+            StationScheduleHelper.ValidateBookingWindow(station.BlockedHours, israelNow, israelNow.Add(holdDuration));
+
             if (await _bookingRepo.HasActiveBookingAsync(dto.VehicleId, ActiveStatuses))
                 throw new ConflictException("לרכב כבר קיימת הזמנה פעילה");
 
-            var now = DateTime.Now;
             var entity = _mapper.Map<ChargeBooking>(dto);
             entity.DriverId = driverId;   // from the token, not from the client
             entity.Status = BookingStatuses.Held;
             entity.CreatedAt = now;
-            entity.EstimatedArrivalTime = NormalizeEstimatedArrivalTime(now, dto.EstimatedArrivalTime);
+            entity.EstimatedArrivalTime = normalizedArrival;
 
             var savedEntity = await _bookingRepo.AddAsync(entity);
 
@@ -114,13 +128,21 @@ namespace BLL.Services
             ValidateBattery(dto);
 
             var entity = await GetOwnedEntityAsync(id, driverId);
-
             if (entity.Status != BookingStatuses.Held && entity.Status != BookingStatuses.Confirmed)
                 throw new ConflictException("ניתן לעדכן הזמנה רק לפני תחילת הטעינה");
 
+            var normalizedArrival = NormalizeEstimatedArrivalTime(entity.CreatedAt, dto.EstimatedArrivalTime);
+            var station = await _bookingRepo.GetStationByIdAsync(entity.StationId);
+            if (station != null)
+            {
+                var israelNow = StationScheduleHelper.GetIsraelNow();
+                var holdUntilIsrael = StationScheduleHelper.ToIsraelTime(normalizedArrival);
+                StationScheduleHelper.ValidateBookingWindow(station.BlockedHours, israelNow, holdUntilIsrael);
+            }
+
             entity.CurrentBatteryPercent = dto.CurrentBatteryPercent;
             entity.TargetBatteryPercent = dto.TargetBatteryPercent;
-            entity.EstimatedArrivalTime = NormalizeEstimatedArrivalTime(entity.CreatedAt, dto.EstimatedArrivalTime);
+            entity.EstimatedArrivalTime = normalizedArrival;
 
             var updatedEntity = await _bookingRepo.UpdateAsync(entity);
             return _mapper.Map<ChargeBookingDto>(updatedEntity);
@@ -159,7 +181,6 @@ namespace BLL.Services
         public async Task<int> ExpireStaleHoldsAsync()
         {
             var staleBookings = await _bookingRepo.GetStaleHoldsAsync(DateTime.Now);
-
             if (staleBookings.Count == 0)
                 return 0;
 
@@ -189,7 +210,6 @@ namespace BLL.Services
                 : DateTime.SpecifyKind(rawEstimatedArrivalTime, DateTimeKind.Unspecified);
 
             var diffMinutes = (localEta - createdAt).TotalMinutes;
-
             if (diffMinutes < 1)
                 return createdAt.AddMinutes(BookingRules.HoldMinutes);
 

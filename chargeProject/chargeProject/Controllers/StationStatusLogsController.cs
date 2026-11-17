@@ -31,11 +31,18 @@ namespace chargeProject.Controllers
             public int StationId { get; set; }
         }
 
-        // נהג מדווח על תקלה בעמדה -> מסמן את העמדה כ-Faulty
+        // נהג מדווח על תקלה בעמדה -> מסמן את העמדה כ-Faulty (חסימת דיווח עצמי)
         [HttpPost("report-fault")]
         [Authorize(Policy = "Driver")]
         public async Task<IActionResult> ReportFault([FromBody] ReportFaultRequest request)
         {
+            var station = await _chargingStationsService.GetByIdAsync(request.StationId);
+            if (User.GetOwnerId() == station.OwnerId)
+                throw new BusinessRuleException("לא ניתן לדווח תקלה על עמדה שבבעלותך");
+
+            if (station.ApprovalStatus != StationApprovalStatuses.Approved)
+                throw new BusinessRuleException("העמדה טרם אושרה במערכת");
+
             var dto = new CreateStationStatusLogDto
             {
                 StationId = request.StationId,

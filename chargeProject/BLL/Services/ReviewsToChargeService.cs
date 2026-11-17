@@ -70,6 +70,11 @@ namespace BLL.Services
             if (booking == null || booking.DriverId != driverId)
                 throw new NotFoundException("ההזמנה לא נמצאה");
 
+            // מניעת דירוג עצמי
+            if (booking.Station?.Owner != null && booking.Driver != null &&
+                booking.Station.Owner.UserId == booking.Driver.UserId)
+                throw new BusinessRuleException("לא ניתן לדרג עמדה שבבעלותך");
+
             if (booking.Status != BookingStatuses.Completed)
                 throw new BusinessRuleException("ניתן לדרג רק טעינה שהסתיימה");
 
@@ -82,7 +87,6 @@ namespace BLL.Services
 
             var savedEntity = await _reviewRepo.AddAsync(entity);
             var fullEntity = await _reviewRepo.GetByIdAsync(savedEntity.Id);
-
             return _mapper.Map<ReviewDto>(fullEntity!);
         }
 
@@ -91,8 +95,13 @@ namespace BLL.Services
         {
             var entity = await _reviewRepo.GetOwnedAsync(id, driverId)
                 ?? throw new NotFoundException("הביקורת לא נמצאה");
-
             await _reviewRepo.DeleteAsync(entity.Id);
+        }
+
+        public async Task DeleteAsAdminAsync(int id)
+        {
+            if (!await _reviewRepo.DeleteAsync(id))
+                throw new NotFoundException("הביקורת לא נמצאה");
         }
     }
 }
